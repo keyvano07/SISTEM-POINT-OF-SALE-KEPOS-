@@ -1,0 +1,66 @@
+graph TD
+    %% ==========================================
+    %% HIGH-LEVEL SYSTEM OVERVIEW USE CASE DIAGRAM
+    %% ==========================================
+    
+    %% Actors Definition
+    SuperAdmin["👤 Super Admin / Owner"]
+    Manager["👤 Manajer Toko"]
+    Supervisor["👤 Supervisor"]
+    Kasir["👤 Kasir"]
+    Pramuniaga["👤 Pramuniaga"]
+    Stocker["👤 Stocker (Staf Gudang)"]
+    SistemLaravel["⚙️ Sistem POS (Backend)"]
+
+    %% Modules / Subsystems (Boundary representation)
+    subgraph Sistem_POS ["Sistem POS (Point of Sale)"]
+        ModulAdmin["⚙️ Modul Pengaturan & Keuangan<br/>(Global Settings & Financial Reports)"]
+        ModulKasir["🛒 Modul Transaksi & Kasir<br/>(Order Drafts & Payments)"]
+        ModulShift["⏱️ Modul Shift & Rekonsiliasi<br/>(Reconciliation & Audits)"]
+        ModulGudang["📦 Modul Gudang & Inventaris<br/>(Restock, Opname & Adjustments)"]
+        ModulOtomasi["🤖 Modul Otomasi & Keamanan<br/>(Validation, Auto-cut, Audit Trail)"]
+    end
+
+    %% Actor to Module Connections (Very clean layout)
+    SuperAdmin --> ModulAdmin
+    
+    Manager --> ModulAdmin
+    Manager --> ModulGudang
+    
+    Supervisor --> ModulKasir
+    Supervisor --> ModulShift
+    
+    Kasir --> ModulKasir
+    Kasir --> ModulShift
+    
+    Pramuniaga --> ModulKasir
+    
+    Stocker --> ModulGudang
+    
+    SistemLaravel --> ModulOtomasi
+
+    %% ==========================================
+    %% BEAUTIFUL CUSTOM STYLING (CSS classes)
+    %% ==========================================
+    style Sistem_POS fill:#FAFAFA,stroke:#37474F,stroke-width:3px,stroke-dasharray: 5 5;
+    style ModulAdmin fill:#EBF3FC,stroke:#1E88E5,stroke-width:1.5px;
+    style ModulKasir fill:#FFFBEA,stroke:#FFB300,stroke-width:1.5px;
+    style ModulShift fill:#F9F2FA,stroke:#BA68C8,stroke-width:1.5px;
+    style ModulGudang fill:#EEF7EE,stroke:#4CAF50,stroke-width:1.5px;
+    style ModulOtomasi fill:#ECEFF1,stroke:#607D8B,stroke-width:1.5px;
+
+    %% Class Definitions for Actors
+    classDef adminStyle fill:#E3F2FD,stroke:#0D47A1,stroke-width:2.5px,color:#0D47A1,font-weight:bold;
+    classDef managerStyle fill:#E0F2F1,stroke:#00695C,stroke-width:2.5px,color:#00695C,font-weight:bold;
+    classDef supervisorStyle fill:#F3E5F5,stroke:#6A1B9A,stroke-width:2.5px,color:#6A1B9A,font-weight:bold;
+    classDef staffStyle fill:#FFF8E1,stroke:#E65100,stroke-width:2.5px,color:#E65100,font-weight:bold;
+    classDef stockerStyle fill:#E8F5E9,stroke:#2E7D32,stroke-width:2.5px,color:#2E7D32,font-weight:bold;
+    classDef systemStyle fill:#ECEFF1,stroke:#37474F,stroke-width:2.5px,color:#37474F,font-weight:bold;
+    
+    %% Apply Styles to Actors
+    class SuperAdmin adminStyle;
+    class Manager managerStyle;
+    class Supervisor supervisorStyle;
+    class Kasir,Pramuniaga staffStyle;
+    class Stocker stockerStyle;
+    class SistemLaravel systemStyle;

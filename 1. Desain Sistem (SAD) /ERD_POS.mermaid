@@ -1,0 +1,274 @@
+%% ==========================================
+%% FULL ERD - SISTEM POS (Point of Sale)
+%% File ini berisi source code Mermaid.js
+%% untuk seluruh Entity Relationship Diagram
+%% ==========================================
+
+%% ==========================================
+%% CLUSTER 1: Core & User Management
+%% ==========================================
+erDiagram
+    stores {
+        int id PK
+        string name
+        string address
+        string phone
+        decimal tax_rate
+        string timezone
+        json settings
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    users {
+        int id PK
+        int store_id FK
+        string name
+        string email UK
+        string password
+        string pin
+        enum role "super_admin|manager|supervisor|kasir|pramuniaga|stocker"
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    stores ||--o{ users : "memiliki"
+
+%% ==========================================
+%% CLUSTER 2: Inventory (Modul Gudang)
+%% ==========================================
+
+    categories {
+        int id PK
+        int store_id FK
+        string name
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    products {
+        int id PK
+        int store_id FK
+        int category_id FK
+        string sku UK
+        string barcode UK
+        string name
+        text description
+        decimal buy_price
+        decimal sell_price
+        int stock_quantity
+        int low_stock_threshold
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    stock_adjustments {
+        int id PK
+        int product_id FK
+        int requested_by FK
+        int approved_by FK
+        int quantity_change
+        decimal financial_value
+        enum reason_code "damaged|expired|opname"
+        enum status "approved|pending_approval|rejected"
+        text notes
+        timestamp approved_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    stock_movements {
+        int id PK
+        int product_id FK
+        int user_id FK
+        enum type "restock|sale|adjustment|opname"
+        int quantity_before
+        int quantity_change
+        int quantity_after
+        int reference_id
+        string reference_type
+        timestamp created_at
+    }
+
+    categories ||--o{ products : "mengelompokkan"
+    products ||--o{ stock_adjustments : "disesuaikan"
+    products ||--o{ stock_movements : "mencatat pergerakan"
+
+%% ==========================================
+%% CLUSTER 3: Transaction & Draft
+%% ==========================================
+
+    order_drafts {
+        int id PK
+        int store_id FK
+        int created_by FK
+        int locked_by FK
+        string queue_id UK
+        enum order_type "dine_in|take_away"
+        string table_number
+        enum status "pending|locked|completed|expired"
+        timestamp expires_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    order_draft_items {
+        int id PK
+        int order_draft_id FK
+        int product_id FK
+        int quantity
+        decimal unit_price
+        decimal subtotal
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    transactions {
+        int id PK
+        int store_id FK
+        int cashier_id FK
+        int shift_id FK
+        int order_draft_id FK
+        int member_id FK
+        int discount_id FK
+        string invoice_number UK
+        decimal subtotal
+        decimal discount_amount
+        decimal tax_amount
+        decimal grand_total
+        enum status "completed|voided"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    transaction_items {
+        int id PK
+        int transaction_id FK
+        int product_id FK
+        int discount_id FK
+        string product_name
+        int quantity
+        decimal unit_price
+        decimal discount_amount
+        decimal subtotal
+        timestamp created_at
+    }
+
+    payments {
+        int id PK
+        int transaction_id FK
+        enum method "cash|qris|debit_card|credit_card"
+        decimal amount
+        decimal change_amount
+        string reference_number
+        boolean is_standalone_fallback
+        timestamp created_at
+    }
+
+    members {
+        int id PK
+        int store_id FK
+        string name
+        string phone UK
+        string card_number UK
+        int points
+        enum tier "bronze|silver|gold"
+        decimal total_spending
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    discounts {
+        int id PK
+        int store_id FK
+        int created_by FK
+        string name
+        enum type "percentage|fixed_amount"
+        decimal value
+        enum scope "transaction|product|category"
+        int scope_id
+        decimal min_purchase
+        enum target "all|member_only|tier_specific"
+        string target_tier
+        boolean is_active
+        date valid_from
+        date valid_until
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    order_drafts ||--o{ order_draft_items : "berisi"
+    transactions ||--o{ transaction_items : "berisi"
+    transactions ||--o{ payments : "dibayar via"
+    members ||--o{ transactions : "melakukan"
+    discounts ||--o{ transactions : "diterapkan ke"
+    discounts ||--o{ transaction_items : "diterapkan ke item"
+
+%% ==========================================
+%% CLUSTER 4: Security & Accountability
+%% ==========================================
+
+    shifts {
+        int id PK
+        int store_id FK
+        int cashier_id FK
+        string shift_code UK
+        decimal opening_cash
+        decimal physical_cash_input
+        decimal expected_cash
+        decimal discrepancy
+        enum status "open|closed"
+        enum audit_status "pending|balance|discrepancy"
+        int audited_by FK
+        text audit_notes
+        timestamp opened_at
+        timestamp closed_at
+        timestamp audited_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    audit_logs {
+        int id PK
+        int store_id FK
+        int executor_id FK
+        int authorizer_id FK
+        enum action "void_unlock|stock_adjust_approve|stock_adjust_reject|price_change"
+        string target_type
+        int target_id
+        json details
+        decimal financial_impact
+        string ip_address
+        timestamp created_at
+    }
+
+%% ==========================================
+%% CROSS-CLUSTER RELATIONSHIPS
+%% ==========================================
+
+    stores ||--o{ products : "menjual"
+    stores ||--o{ categories : "mengelompokkan"
+    stores ||--o{ order_drafts : "menerima pesanan"
+    stores ||--o{ transactions : "mencatat penjualan"
+    stores ||--o{ shifts : "mengelola shift"
+    stores ||--o{ members : "memiliki pelanggan"
+    stores ||--o{ discounts : "memiliki promo"
+    stores ||--o{ audit_logs : "mencatat audit"
+
+    users ||--o{ order_drafts : "membuat"
+    users ||--o{ transactions : "memproses"
+    users ||--o{ shifts : "menjalankan"
+    users ||--o{ stock_adjustments : "mengajukan"
+    users ||--o{ discounts : "membuat"
+    users ||--o{ audit_logs : "tercatat di"
+
+    products ||--o{ order_draft_items : "dipesan"
+    products ||--o{ transaction_items : "dijual"
+
+    order_drafts ||--o| transactions : "diproses menjadi"
+
+    discounts ||--o{ transactions : "diterapkan ke"
+    discounts ||--o{ transaction_items : "diterapkan ke item"
+    shifts ||--o{ transactions : "mencatat"

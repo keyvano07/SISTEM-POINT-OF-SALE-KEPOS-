@@ -1,0 +1,64 @@
+sequenceDiagram
+    autonumber
+    participant P as 👤 Pramuniaga
+    participant K as 👤 Kasir
+    participant SPV as 👤 Supervisor
+    participant S as ⚙️ Sistem POS (Laravel)
+    
+    Note over P, S: Jalur A: Melalui Pramuniaga (Order Draft)
+    P->>S: Input Pesanan & Simpan Draft (Queue ID / No Meja)
+    Note over K, S: Jalur B: Scan Langsung di Kasir
+    K->>S: Buka Keranjang & Scan SKU/Barcode Produk
+    
+    K->>S: Tarik Draft via Queue ID (Jika Jalur A)
+    activate S
+    S->>S: Kunci Draft agar tidak bisa ditarik Kasir lain
+    S->>S: Validasi Ketersediaan Stok Riil
+    alt Stok Tidak Cukup
+        S-->>K: Tampilkan Pesan "Stok Tidak Mencukupi" (Blokir Tombol Bayar)
+    else Stok Cukup
+        S-->>K: Tampilkan Detail Keranjang (Fase Pra-Bayar)
+    end
+    deactivate S
+
+    Note over K: Fase Pra-Bayar (Editable)
+    K->>S: Tambah/Kurangi/Hapus Item (Mandiri)
+    K->>S: Validasi Membership (Input No. HP/Scan Kartu)
+    S->>S: Hitung Subtotal, Diskon Loyalty, & PPN otomatis
+
+    K->>S: Klik "Proses Pembayaran" (Fase locked)
+    activate S
+    S->>S: Kunci (Freeze) Keranjang & Nonaktifkan Tombol Hapus/Edit
+    deactivate S
+    
+    alt Pelanggan batal beli 1 item setelah dikunci
+        K->>S: Tekan "Buka Kunci"
+        S-->>K: Meminta input PIN/Password Supervisor
+        SPV->>S: Masukkan PIN Supervisor
+        activate S
+        S->>S: Catat Log Audit Trail (ID Supervisor, Waktu, Detail Void)
+        S-->>K: Buka Kunci (Kembali ke Fase Pra-Bayar)
+        deactivate S
+    end
+
+    Note over K: Eksekusi Pembayaran
+    K->>S: Pilih Metode Pembayaran (Tunai / QRIS / Kartu / Split)
+    
+    alt Jika Tunai
+        K->>S: Masukkan Uang Diterima
+        S-->>K: Hitung Uang Kembalian Otomatis
+    else Jika QRIS / Kartu (EDC)
+        S->>S: Tunggu Notifikasi Payment Gateway / Mesin EDC
+        Note over S, K: Fallback Standalone: Jika koneksi EDC gagal, Kasir konfirmasi manual
+    end
+
+    K->>S: Selesaikan Transaksi (Cetak Struk)
+    activate S
+    S->>S: Asynchronous Processing:
+    S->>S: 1. Ubah Status Draft menjadi COMPLETED
+    S->>S: 2. Potong Stok Produk di DB secara Real-Time
+    S->>S: 3. Catat Transaksi Baru (TRX-YYYYMMDD-XXXX)
+    S->>S: 4. Catat Aliran Kas Masuk ke Jurnal Shift Kasir
+    S->>S: 5. Tambah Poin Membership (jika ada)
+    S-->>K: Bersihkan Layar & Cetak Struk (Fisik/Digital)
+    deactivate S
