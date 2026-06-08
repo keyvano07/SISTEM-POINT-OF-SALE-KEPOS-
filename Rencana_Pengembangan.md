@@ -14,6 +14,7 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 5. **Fase 5 (Transaksi & Kasir):** Alur checkout utama kasir (tarik draft, hitung kembalian, bayar).
 6. **Fase 6 (Otorisasi, Void & Audit):** PIN Bypass supervisor, pembatalan transaksi, dan log audit immutable.
 7. **Fase 7 (Diskon & Member):** Tambahan loyalty member, sistem promo, dan cetak struk.
+8. **Fase 8 (Integrasi, QA & Deployment):** End-to-end testing, security hardening, dan persiapan deployment.
 
 ---
 
@@ -96,22 +97,25 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 #### Card 1: API Order Draft & Auto Expiry (Backend)
 *   **Description:** Endpoint penampung antrean draf pesanan dari pramuniaga dengan masa kedaluwarsa 2 jam.
 *   **Checklist:**
-    *   [ ] Buat migration: `order_drafts` dan `order_draft_items`.
-    *   [ ] Buat endpoint `POST /api/v1/order-drafts` (Pramuniaga membuat draft).
-    *   [ ] Implementasikan generator unik `queue_id` otomatis (contoh: `Q-070626-0001`).
-    *   [ ] Set kolom `expires_at = created_at + 2 jam`.
-    *   [ ] Buat Laravel Console Command & Scheduler untuk otomatis meng-expire draf yang melewati batas waktu (`status = expired`).
-    *   [ ] Buat endpoint `GET /api/v1/order-drafts/{id}` untuk detail isi draft.
+    *   [x] Buat migration: `order_drafts` dan `order_draft_items`.
+    *   [x] Buat endpoint `POST /api/v1/order-drafts` (Pramuniaga membuat draft).
+    *   [x] Implementasikan generator unik `queue_id` otomatis (contoh: `Q-070626-0001`).
+    *   [x] Set kolom `expires_at = created_at + 2 jam`.
+    *   [x] Buat Laravel Console Command & Scheduler untuk otomatis meng-expire draf yang melewati batas waktu (`status = expired`).
+    *   [x] Buat endpoint `GET /api/v1/order-drafts/{id}` untuk detail isi draft (mendukung lookup by ID numerik maupun Queue ID string).
+    *   [x] Buat endpoint `POST /api/v1/order-drafts/{id}/lock` (Kasir mengunci draft saat checkout).
+    *   [x] Buat endpoint `POST /api/v1/order-drafts/{id}/unlock` (Membuka kunci draft dengan PIN Supervisor).
+    *   [x] Buat endpoint `PUT /api/v1/order-drafts/{id}` (Edit item keranjang setelah draft di-unlock).
 
 #### Card 2: Tablet Pramuniaga UI (Frontend)
 *   **Description:** Tampilan aplikasi pramuniaga untuk input menu/produk dan generate nomor antrean (Queue ID).
 *   **Checklist:**
-    *   [ ] Buat folder route khusus tablet pramuniaga (`src/app/pramuniaga/page.tsx`).
-    *   [ ] Buat grid pencarian produk cepat berbasis kategori.
-    *   [ ] Buat keranjang draf lokal (Zustand store `useCartStore` di tablet).
-    *   [ ] Buat halaman input nomor meja (jika *dine-in*) / tipe order (*take-away*).
-    *   [ ] Tombol submit order draft ke API backend.
-    *   [ ] Tampilkan modal nomor antrean (Queue ID) berukuran besar setelah sukses disubmit agar bisa difoto/dicatat.
+    *   [x] Buat folder route khusus tablet pramuniaga (`src/app/pramuniaga/page.tsx`).
+    *   [x] Buat grid pencarian produk cepat berbasis kategori.
+    *   [x] Buat keranjang draf lokal (Zustand store `useCartStore` di tablet).
+    *   [x] Buat halaman input nomor meja (jika *dine-in*) / tipe order (*take-away*).
+    *   [x] Tombol submit order draft ke API backend.
+    *   [x] Tampilkan modal nomor antrean (Queue ID) berukuran besar setelah sukses disubmit agar bisa difoto/dicatat.
 
 ---
 
@@ -120,19 +124,21 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 #### Card 1: Buka & Tutup Shift (Backend)
 *   **Description:** Rekonsiliasi keuangan kasir menggunakan metode Blind Cash Drop.
 *   **Checklist:**
-    *   [ ] Buat migration: `shifts`.
-    *   [ ] Buat endpoint `POST /api/v1/shifts/open` (Kasir input `opening_cash` / modal awal).
-    *   [ ] Buat endpoint `POST /api/v1/shifts/close` (Kasir input `physical_cash_input` saat pulang kerja).
-    *   [ ] Tulis logic di backend: hitung selisih (`discrepancy = physical_cash - expected_cash`) saat shift diclose, namun sembunyikan hasilnya dari respons user kasir (Blind Drop).
-    *   [ ] Buat endpoint `GET /api/v1/shifts/active` untuk memeriksa apakah kasir memiliki shift aktif.
+    *   [x] Buat migration: `shifts`.
+    *   [x] Implementasikan generator unik `shift_code` (format: `SHIFT-YYYYMMDD-XXXX`, auto-reset harian).
+    *   [x] Buat endpoint `POST /api/v1/shifts/open` (Kasir input `opening_cash` / modal awal).
+    *   [x] Buat endpoint `POST /api/v1/shifts/close` (Kasir input `physical_cash_input` saat pulang kerja).
+    *   [x] Tulis logic di backend: hitung selisih (`discrepancy = physical_cash - expected_cash`) saat shift diclose, namun sembunyikan hasilnya dari respons user kasir (Blind Drop).
+    *   [x] Revoke token Sanctum kasir secara otomatis saat API `POST /shifts/close` dipanggil (auto-logout server-side).
+    *   [x] Buat endpoint `GET /api/v1/shifts/active` untuk memeriksa apakah kasir memiliki shift aktif.
 
 #### Card 2: Alur Shift Kasir (Frontend)
 *   **Description:** Interface pembatas kasir wajib mengisi kas laci sebelum melayani pelanggan.
 *   **Checklist:**
-    *   [ ] Buat Zustand store `useShiftStore` untuk tracking shift status kasir.
-    *   [ ] Buat Modal/Halaman Buka Shift (input modal awal, misal Rp 100.000).
-    *   [ ] Proteksi halaman POS Next.js: Jika status `GET /api/v1/shifts/active` adalah null, alihkan kasir ke halaman Buka Shift.
-    *   [ ] Buat halaman Tutup Shift (input nominal laci kasir manual). Setelah disubmit, panggil API logout dan bersihkan local storage kasir.
+    *   [x] Buat Zustand store `useShiftStore` untuk tracking shift status kasir.
+    *   [x] Buat Modal/Halaman Buka Shift (input modal awal, misal Rp 100.000).
+    *   [x] Proteksi halaman POS Next.js: Jika status `GET /api/v1/shifts/active` adalah null, alihkan kasir ke halaman Buka Shift.
+    *   [x] Buat halaman Tutup Shift (input nominal laci kasir manual). Setelah disubmit, panggil API logout dan bersihkan local storage kasir.
 
 ---
 
@@ -141,11 +147,11 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 #### Card 1: Tarik Draft & Keranjang Kasir (Frontend)
 *   **Description:** Kasir menarik antrean draf pesanan dari pramuniaga dan mengunci data draf.
 *   **Checklist:**
-    *   [ ] Buat halaman POS utama kasir (`src/app/pos/page.tsx`).
-    *   [ ] Buat tombol/modal "Tarik Antrean" yang memanggil API `GET /api/v1/order-drafts` (list pending).
-    *   [ ] Panggil API `POST /api/v1/order-drafts/{id}/lock` ketika kasir memilih satu draf antrean.
-    *   [ ] Tampilkan isi draf ke keranjang belanja kasir.
-    *   [ ] Desain keranjang dalam mode terkunci (Kasir tidak bisa tambah/hapus item tanpa bypass PIN Supervisor).
+    *   [x] Buat halaman POS utama kasir (`src/app/pos/page.tsx`).
+    *   [x] Buat tombol/modal "Tarik Antrean" yang memanggil API `GET /api/v1/order-drafts` (list pending). Tambahkan query parameter `?status=` untuk filter status draft.
+    *   [x] Panggil API `POST /api/v1/order-drafts/{id}/lock` ketika kasir memilih satu draf antrean.
+    *   [x] Tampilkan isi draf ke keranjang belanja kasir.
+    *   [x] Desain keranjang dalam mode terkunci (Kasir tidak bisa tambah/hapus item tanpa bypass PIN Supervisor).
 
 #### Card 2: Pembayaran & Cetak Invoice (Backend)
 *   **Description:** Memfinalisasi pembayaran kasir, generate nomor invoice unik, potong stok produk, dan catat metode bayar.
@@ -153,8 +159,10 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
     *   [ ] Buat migration: `transactions`, `transaction_items`, dan `payments`.
     *   [ ] Buat endpoint `POST /api/v1/transactions` (Kasir checkout final).
     *   [ ] Implementasi generator nomor invoice harian: `TRX-YYYYMMDD-XXXX` (reset ke 0001 setiap hari baru).
+    *   [ ] Simpan **snapshot** `product_name` dan `unit_price` ke `transaction_items` (bukan referensi dinamis, agar data historis tetap akurat jika harga produk berubah).
+    *   [ ] Hitung `tax_amount` secara otomatis berdasarkan `stores.tax_rate` saat checkout. Tampilkan rincian pajak di struk/invoice.
     *   [ ] Buat logic `PaymentService` untuk mencatat pembayaran (mendukung split payment, tunai/non-tunai).
-    *   [ ] Integrasikan potongan stok otomatis di database saat transaksi disimpan (panggil `StockService`).
+    *   [ ] Potong `products.stock_quantity` dan tulis log ke `stock_movements` (`type: sale`, `reference_type: Transaction`) secara atomik dalam DB transaction.
     *   [ ] Ubah status order_draft menjadi `completed`.
 
 #### Card 3: Proses Pembayaran & Struk (Frontend)
@@ -172,8 +180,9 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 #### Card 1: Verifikasi PIN & Otorisasi Bypass (Backend & Frontend)
 *   **Description:** Aksi sensitif kasir membutuhkan otorisasi PIN Supervisor/Manager.
 *   **Checklist:**
-    *   [ ] Buat endpoint API `POST /api/v1/auth/verify-pin` (validasi PIN).
-    *   [ ] Buat modal popup di Next.js: "Butuh Otorisasi Supervisor" yang meminta input PIN 6-digit.
+    *   [x] ~~Buat endpoint API `POST /api/v1/auth/verify-pin` (validasi PIN).~~ *(Sudah diimplementasikan di Fase 1)*
+    *   [ ] Buat komponen modal PIN otorisasi yang **reusable** di Next.js (`components/PinAuthModal.tsx`) dengan input 6-digit.
+    *   [ ] Audit dan terapkan middleware `role:` di **setiap** route API sesuai Spesifikasi API (RBAC enforcement).
     *   [ ] Integrasikan modal PIN ini pada aksi:
         *   Membuka lock draft keranjang belanja kasir (`POST /api/v1/order-drafts/{id}/unlock`).
         *   Persetujuan stock adjustment oleh Manager (`POST /api/v1/stock-adjustments/{id}/approve`).
@@ -216,3 +225,40 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
     *   [ ] Buat model `Discount` dengan field scope (transaction/product/category), tipe (percentage/fixed_amount), target (all/member_only/tier_specific), dan validitas tanggal.
     *   [ ] Tulis logic di backend: hitung otomatis diskon transaksi/item di endpoint checkout.
     *   [ ] Buat API `GET /api/v1/discounts/active` untuk mendapatkan daftar diskon yang sedang aktif hari ini.
+
+#### Card 3: Manajemen Diskon & Member UI (Frontend)
+*   **Description:** Antarmuka frontend untuk pengelolaan diskon oleh manager dan pencarian member di kasir.
+*   **Checklist:**
+    *   [ ] Buat halaman CRUD diskon di dashboard manager (`src/app/dashboard/manager/discounts/page.tsx`).
+    *   [ ] Buat modal pencarian member (via No Telp / Scan Kartu) di halaman POS kasir.
+    *   [ ] Integrasikan auto-apply diskon berdasarkan tier member di UI checkout kasir.
+    *   [ ] Tampilkan riwayat poin & info tier member di dashboard manager.
+
+---
+
+### 📋 LIST 8: FASE 8 - INTEGRASI, QA & DEPLOYMENT
+---
+#### Card 1: End-to-End Testing
+*   **Description:** Pengujian alur lengkap sistem dari login hingga rekonsiliasi shift.
+*   **Checklist:**
+    *   [ ] Tulis test script alur lengkap: Login → Buka Shift → Tarik Draft → Checkout → Tutup Shift.
+    *   [ ] Verifikasi seluruh perhitungan finansial (subtotal, diskon, pajak, kembalian, discrepancy kas).
+    *   [ ] Stress-test concurrent order draft creation (SQLite locking behavior).
+    *   [ ] Test alur void transaksi: pengembalian stok, audit log, dan kalkulasi ulang expected cash di shift.
+
+#### Card 2: Security Hardening
+*   **Description:** Audit keamanan dan penguatan hak akses sistem.
+*   **Checklist:**
+    *   [ ] Audit semua endpoint API: pastikan setiap route memiliki middleware `role:` yang sesuai.
+    *   [ ] Validasi bahwa tabel `audit_logs` tidak memiliki endpoint `DELETE` atau `UPDATE` di API.
+    *   [ ] Test token expiration & force-logout behavior di frontend dan backend.
+    *   [ ] Pastikan semua input user ter-sanitasi dan tervalidasi (XSS, SQL injection prevention).
+
+#### Card 3: Deployment Preparation
+*   **Description:** Persiapan environment production dan dokumentasi.
+*   **Checklist:**
+    *   [ ] Dokumentasikan semua environment variables yang dibutuhkan (`.env.example`).
+    *   [ ] Setup production build Next.js (`next build`) & Laravel (`php artisan optimize`).
+    *   [ ] Tentukan strategi migrasi database (SQLite → MySQL jika diperlukan untuk concurrent write).
+    *   [ ] Buat panduan deployment (Docker/Podman compose, reverse proxy, SSL).
+

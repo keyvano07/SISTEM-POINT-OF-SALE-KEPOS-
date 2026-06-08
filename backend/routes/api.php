@@ -34,12 +34,17 @@ Route::prefix('v1')->group(function () {
         Route::post('/stock-adjustments/{id}/approve', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'approve']);
         Route::post('/stock-adjustments/{id}/reject', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'reject']);
 
-        // Test Role-Based Access Control (RBAC)
-        Route::get('/test-manager-only', function () {
-            return response()->json([
-                'success' => true,
-                'message' => 'Akses diterima: Anda adalah manager atau super_admin.'
-            ]);
-        })->middleware('role:manager,super_admin');
+        // Order drafts
+        Route::get('/order-drafts', [\App\Http\Controllers\Api\OrderDraftController::class, 'index']);
+        Route::post('/order-drafts', [\App\Http\Controllers\Api\OrderDraftController::class, 'store']);
+        Route::get('/order-drafts/{id}', [\App\Http\Controllers\Api\OrderDraftController::class, 'show']);
+        Route::put('/order-drafts/{id}', [\App\Http\Controllers\Api\OrderDraftController::class, 'update']);
+        Route::post('/order-drafts/{id}/lock', [\App\Http\Controllers\Api\OrderDraftController::class, 'lock']);
+        Route::post('/order-drafts/{id}/unlock', [\App\Http\Controllers\Api\OrderDraftController::class, 'unlock']);
+
+        // Shifts (Kasir)
+        Route::post('/shifts/open', [\App\Http\Controllers\Api\ShiftController::class, 'open'])->middleware('role:kasir,super_admin');
+        Route::post('/shifts/close', [\App\Http\Controllers\Api\ShiftController::class, 'close'])->middleware('role:kasir,super_admin');
+        Route::get('/shifts/active', [\App\Http\Controllers\Api\ShiftController::class, 'active'])->middleware('role:kasir,super_admin');
     });
 });
