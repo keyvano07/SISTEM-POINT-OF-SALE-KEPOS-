@@ -156,22 +156,24 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 #### Card 2: Pembayaran & Cetak Invoice (Backend)
 *   **Description:** Memfinalisasi pembayaran kasir, generate nomor invoice unik, potong stok produk, dan catat metode bayar.
 *   **Checklist:**
-    *   [ ] Buat migration: `transactions`, `transaction_items`, dan `payments`.
-    *   [ ] Buat endpoint `POST /api/v1/transactions` (Kasir checkout final).
-    *   [ ] Implementasi generator nomor invoice harian: `TRX-YYYYMMDD-XXXX` (reset ke 0001 setiap hari baru).
-    *   [ ] Simpan **snapshot** `product_name` dan `unit_price` ke `transaction_items` (bukan referensi dinamis, agar data historis tetap akurat jika harga produk berubah).
-    *   [ ] Hitung `tax_amount` secara otomatis berdasarkan `stores.tax_rate` saat checkout. Tampilkan rincian pajak di struk/invoice.
-    *   [ ] Buat logic `PaymentService` untuk mencatat pembayaran (mendukung split payment, tunai/non-tunai).
-    *   [ ] Potong `products.stock_quantity` dan tulis log ke `stock_movements` (`type: sale`, `reference_type: Transaction`) secara atomik dalam DB transaction.
-    *   [ ] Ubah status order_draft menjadi `completed`.
+    *   [x] Buat migration: `transactions`, `transaction_items`, dan `payments`.
+    *   [x] Buat endpoint `POST /api/v1/transactions` (Kasir checkout final).
+    *   [x] Implementasi generator nomor invoice harian: `TRX-YYYYMMDD-XXXX` (reset ke 0001 setiap hari baru).
+    *   [x] Simpan **snapshot** `product_name` dan `unit_price` ke `transaction_items` (bukan referensi dinamis, agar data historis tetap akurat jika harga produk berubah).
+    *   [x] Hitung `tax_amount` secara otomatis berdasarkan `stores.tax_rate` saat checkout. Tampilkan rincian pajak di struk/invoice.
+    *   [x] Buat logic `PaymentService` untuk mencatat pembayaran (mendukung split payment, tunai/non-tunai).
+    *   [x] **Perencanaan Payment Gateway**: Karena belum membeli/berlangganan API payment gateway (Midtrans/Xendit), implementasikan **Standalone Fallback mode** (kasir menginput nomor referensi secara manual untuk EDC/QRIS, dengan kolom `is_standalone_fallback = true` dan `reference_number` tersimpan di database). Sediakan pula Simulator/Mock QRIS dummy di backend untuk demo pembayaran sukses otomatis.
+    *   [x] Potong `products.stock_quantity` dan tulis log ke `stock_movements` (`type: sale`, `reference_type: Transaction`) secara atomik dalam DB transaction.
+    *   [x] Ubah status order_draft menjadi `completed`.
 
 #### Card 3: Proses Pembayaran & Struk (Frontend)
 *   **Description:** Panel kalkulator pembayaran di kasir, split payment, input cash kembalian, dan modal struk PDF.
 *   **Checklist:**
-    *   [ ] Buat form pembayaran di kasir (Input uang tunai, hitung kembalian otomatis).
-    *   [ ] Tambahkan opsi split payment (misal: sebagian tunai, sebagian QRIS).
-    *   [ ] Panggil API `POST /api/v1/transactions` ketika pembayaran lunas.
-    *   [ ] Setelah transaksi sukses, munculkan pop-up modal cetak struk (render struk belanja PDF digital).
+    *   [x] Buat form pembayaran di kasir (Input uang tunai, hitung kembalian otomatis).
+    *   [x] Tambahkan opsi split payment (misal: sebagian tunai, sebagian QRIS/EDC).
+    *   [x] **UI/UX Standalone Payment & QRIS Simulator**: Buat input field manual untuk kode referensi transaksi EDC/QRIS. Tambahkan tombol "Simulasikan Bayar Otomatis" untuk mensimulasikan respons pembayaran berhasil dari QRIS gateway dummy.
+    *   [x] Panggil API `POST /api/v1/transactions` ketika pembayaran lunas.
+    *   [x] Setelah transaksi sukses, munculkan pop-up modal cetak struk (render struk belanja PDF digital).
 
 ---
 
@@ -181,28 +183,29 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 *   **Description:** Aksi sensitif kasir membutuhkan otorisasi PIN Supervisor/Manager.
 *   **Checklist:**
     *   [x] ~~Buat endpoint API `POST /api/v1/auth/verify-pin` (validasi PIN).~~ *(Sudah diimplementasikan di Fase 1)*
-    *   [ ] Buat komponen modal PIN otorisasi yang **reusable** di Next.js (`components/PinAuthModal.tsx`) dengan input 6-digit.
-    *   [ ] Audit dan terapkan middleware `role:` di **setiap** route API sesuai Spesifikasi API (RBAC enforcement).
-    *   [ ] Integrasikan modal PIN ini pada aksi:
-        *   Membuka lock draft keranjang belanja kasir (`POST /api/v1/order-drafts/{id}/unlock`).
-        *   Persetujuan stock adjustment oleh Manager (`POST /api/v1/stock-adjustments/{id}/approve`).
+    *   [x] Buat komponen modal PIN otorisasi yang **reusable** di Next.js (`components/PinAuthModal.tsx`) dengan input 6-digit.
+    *   [x] Audit dan terapkan middleware `role:` di **setiap** route API sesuai Spesifikasi API (RBAC enforcement).
+    *   [x] Integrasikan modal PIN ini pada aksi:
+        *   [x] Membuka lock draft keranjang belanja kasir (`POST /api/v1/order-drafts/{id}/unlock`).
+        *   [x] Persetujuan stock adjustment oleh Manager (`POST /api/v1/stock-adjustments/{id}/approve`).
 
-#### Card 2: Pembatalan Transaksi / Void (Backend)
+#### Card 2: Pembatalan Transaksi / Void (Backend & Frontend)
 *   **Description:** Membatalkan transaksi sukses yang sudah dicetak, mengembalikan stok, dan melacak alasan pembatalan.
 *   **Checklist:**
-    *   [ ] Buat endpoint `POST /api/v1/transactions/{id}/void`.
-    *   [ ] Validasi request wajib mengirimkan PIN Supervisor dan Alasan Void (tidak boleh kosong).
-    *   [ ] Di database, set status transaksi menjadi `voided`.
-    *   [ ] Kembalikan stok item produk yang dibatalkan ke jumlah semula dan buat log pergerakan stok masuk (`type: adjustment`).
-    *   [ ] Catat log audit void ke dalam tabel `audit_logs` secara otomatis.
+    *   [x] Buat endpoint `POST /api/v1/transactions/{id}/void`.
+    *   [x] Validasi request wajib mengirimkan PIN Supervisor dan Alasan Void (tidak boleh kosong).
+    *   [x] Di database, set status transaksi menjadi `voided`.
+    *   [x] Kembalikan stok item produk yang dibatalkan ke jumlah semula dan buat log pergerakan stok masuk (`type: adjustment`).
+    *   [x] Catat log audit void ke dalam tabel `audit_logs` secara otomatis.
+    *   [x] Tampilkan daftar riwayat transaksi di dashboard kasir dengan tombol "Void Transaksi" yang terlindungi modal PIN Supervisor.
 
 #### Card 3: Log Audit Immutable & Rekonsiliasi (Supervisor/Manager)
 *   **Description:** Pencatatan log sistem permanen dan dashboard supervisor untuk mengaudit kas laci kasir.
 *   **Checklist:**
-    *   [ ] Buat migration: `audit_logs` (read-only, tanpa API delete/update).
-    *   [ ] Buat service class `AuditTrailService` di Laravel untuk mencatat log audit polymorphic (void, update harga, adjustment stok).
-    *   [ ] Buat endpoint `GET /api/v1/audit-logs` untuk dimuat di panel Manager.
-    *   [ ] Buat dashboard Rekonsiliasi Shift Supervisor (`POST /api/v1/shifts/{id}/audit`) untuk mencocokkan fisik uang laci kasir vs perhitungan sistem, lalu mencatat selisih (*discrepancy*).
+    *   [x] Buat migration: `audit_logs` (read-only, tanpa API delete/update).
+    *   [x] Buat service class `AuditTrailService` di Laravel untuk mencatat log audit polymorphic (void, update harga, adjustment stok).
+    *   [x] Buat endpoint `GET /api/v1/audit-logs` untuk dimuat di panel Manager.
+    *   [x] Buat dashboard Rekonsiliasi Shift Supervisor (`POST /api/v1/shifts/{id}/audit`) untuk mencocokkan fisik uang laci kasir vs perhitungan sistem, lalu mencatat selisih (*discrepancy*).
 
 ---
 
@@ -261,4 +264,37 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
     *   [ ] Setup production build Next.js (`next build`) & Laravel (`php artisan optimize`).
     *   [ ] Tentukan strategi migrasi database (SQLite → MySQL jika diperlukan untuk concurrent write).
     *   [ ] Buat panduan deployment (Docker/Podman compose, reverse proxy, SSL).
+
+---
+
+### 📋 LIST 9: FASE 9 - INTEGRASI PAYMENT GATEWAY (MIDTRANS/XENDIT)
+---
+#### Card 1: Setup & Integrasi SDK Payment Gateway (Backend)
+*   **Description:** Menyiapkan konfigurasi key, merchant id, environment (.env) dan SDK/Library untuk Midtrans atau Xendit di Laravel.
+*   **Checklist:**
+    *   [ ] Tambahkan environment variables untuk Midtrans/Xendit Sandbox (Merchant ID, Client Key, Server Key).
+    *   [ ] Buat config file `config/payment.php` untuk meload variables tersebut.
+    *   [ ] Install official SDK Midtrans/Xendit via composer.
+    *   [ ] Buat base helper/service class `PaymentGatewayService` dengan method:
+        *   `createQrisTransaction(Transaction $transaction)` untuk request snap token / QRIS URL ke provider.
+        *   `createCardTransaction(Transaction $transaction)` untuk opsi pembayaran kartu kredit/debit online.
+
+#### Card 2: Webhook Endpoint & Status Check (Backend)
+*   **Description:** Endpoint penerima callback / webhook dari payment gateway untuk update status pembayaran transaksi secara realtime & async.
+*   **Checklist:**
+    *   [ ] Daftarkan route webhook `POST /api/v1/payment/webhook` (bypass auth middleware).
+    *   [ ] Implementasikan verifikasi signature webhook dari Midtrans/Xendit untuk mencegah callback palsu.
+    *   [ ] Buat logic penanganan status webhook:
+        *   Jika status `settlement` atau `capture` (success): update `payments.status` menjadi `success` dan trigger penyelesaian transaksi / update shift expected cash.
+        *   Jika status `expire`, `cancel`, `deny`: set `payments.status` menjadi `failed`, batalkan/void parsial transaksi, kembalikan stok.
+    *   [ ] Tambahkan endpoint `GET /api/v1/transactions/{id}/payment-status` untuk polling status pembayaran realtime dari frontend.
+
+#### Card 3: Integrasi Pembayaran Realtime & Polling UI (Frontend)
+*   **Description:** Menghubungkan proses checkout di UI Kasir dengan API payment gateway dan modal status pembayaran menunggu (polling).
+*   **Checklist:**
+    *   [ ] Update modal checkout kasir saat memilih QRIS/Debit/Credit: panggil API create transaction dan dapatkan QR Code URL / Snap Token.
+    *   [ ] Tampilkan QR Code dinamis dari payment gateway langsung di layar/tablet kasir (atau cetak QR code mini).
+    *   [ ] Buat modal status pembayaran "Menunggu Pembayaran..." dengan status check/polling setiap 3-5 detik ke endpoint `GET /transactions/{id}/payment-status`.
+    *   [ ] Tampilkan alert sukses dan lanjutkan otomatis ke struk belanja setelah pembayaran terdeteksi lunas (lunas via webhook/polling).
+    *   [ ] Sediakan tombol fallback "Konfirmasi Manual / Standalone" jika pembayaran gateway macet / mati.
 

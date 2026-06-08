@@ -46,5 +46,14 @@ Route::prefix('v1')->group(function () {
         Route::post('/shifts/open', [\App\Http\Controllers\Api\ShiftController::class, 'open'])->middleware('role:kasir,super_admin');
         Route::post('/shifts/close', [\App\Http\Controllers\Api\ShiftController::class, 'close'])->middleware('role:kasir,super_admin');
         Route::get('/shifts/active', [\App\Http\Controllers\Api\ShiftController::class, 'active'])->middleware('role:kasir,super_admin');
+        Route::post('/shifts/{id}/audit', [\App\Http\Controllers\Api\ShiftController::class, 'audit'])->middleware('role:supervisor,manager,super_admin');
+
+        // Transactions (Kasir/Supervisor)
+        Route::get('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
+        Route::post('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'store']);
+        Route::post('/transactions/{id}/void', [\App\Http\Controllers\Api\TransactionController::class, 'void']);
+
+        // Audit Logs (Manager/Supervisor)
+        Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
     });
 });

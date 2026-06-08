@@ -141,10 +141,17 @@ class ShiftController extends Controller
 
         try {
             DB::transaction(function () use ($shift, $request, $user) {
-                // Calculate expected cash
-                // For now (Fase 4): expected_cash = opening_cash (no transactions table yet)
-                // In Fase 5, this will be: opening_cash + SUM(cash payments in this shift)
-                $expectedCash = $shift->opening_cash;
+                // Calculate expected cash: opening_cash + SUM(cash payments in this shift)
+                $cashPaymentsSum = DB::table('payments')
+                    ->join('transactions', 'payments.transaction_id', '=', 'transactions.id')
+                    ->where('transactions.shift_id', $shift->id)
+                    ->where('transactions.status', 'completed')
+                    ->where('payments.method', 'cash')
+                    ->select(DB::raw('SUM(payments.amount - payments.change_amount) as total'))
+                    ->first()
+                    ->total ?? 0.00;
+
+                $expectedCash = $shift->opening_cash + $cashPaymentsSum;
 
                 $physicalCash = $request->physical_cash_input;
                 $discrepancy = $physicalCash - $expectedCash;
@@ -205,5 +212,78 @@ class ShiftController extends Controller
                 'opened_at' => $shift->opened_at,
             ]
         ]);
+    }
+
+    /**
+     * Audit Reconciliation for a closed shift (Supervisor/Manager).
+     */
+    public function audit(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'audit_status' => 'required|in:balance,discrepancy',
+            'audit_notes' => 'nullable|string|max:255',
+        ], [
+            'audit_status.required' => 'Status audit harus diisi.',
+            'audit_status.in' => 'Status audit harus berupa balance atau discrepancy.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi audit gagal.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        // Only manager, supervisor, or super_admin can audit
+        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk melakukan audit shift.'
+            ], 403);
+        }
+
+        try {
+            $shift = Shift::findOrFail($id);
+
+            if ($shift->status !== 'closed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Shift belum ditutup. Hanya shift berstatus closed yang dapat diaudit.'
+                ], 422);
+            }
+
+            $shift->audit_status = $request->audit_status;
+            $shift->audit_notes = $request->audit_notes;
+            $shift->audited_by = $user->id;
+            $shift->audited_at = now();
+            $shift->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Audit shift berhasil diselesaikan.',
+                'data' => [
+                    'id' => $shift->id,
+                    'shift_code' => $shift->shift_code,
+                    'opening_cash' => $shift->opening_cash,
+                    'physical_cash_input' => $shift->physical_cash_input,
+                    'expected_cash' => $shift->expected_cash,
+                    'discrepancy' => $shift->discrepancy,
+                    'status' => $shift->status,
+                    'audit_status' => $shift->audit_status,
+                    'audit_notes' => $shift->audit_notes,
+                    'audited_at' => $shift->audited_at->toIso8601String()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengaudit shift.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

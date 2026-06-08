@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useShiftStore } from '@/store/useShiftStore';
 import api from '@/services/api';
+import PinAuthModal from '@/components/PinAuthModal';
 import {
   LogOut, ShoppingCart, Shield, DollarSign,
   Loader2, Clock, AlertTriangle, CheckCircle, X,
   Wallet, CreditCard, Search, Plus, Minus, Trash2,
-  Lock, Unlock, RefreshCw, ShoppingBag, ClipboardList
+  Lock, Unlock, RefreshCw, ShoppingBag, ClipboardList,
+  Printer, ArrowRight, Smartphone
 } from 'lucide-react';
 
 interface Product {
@@ -55,6 +57,45 @@ interface PosCartItem {
   quantity: number;
 }
 
+interface PaymentInput {
+  method: 'cash' | 'qris' | 'debit_card' | 'credit_card';
+  amount: number;
+  change_amount: number;
+  reference_number: string;
+  is_standalone_fallback: boolean;
+}
+
+interface TransactionItem {
+  id: number;
+  product_name: string;
+  quantity: number;
+  unit_price: string;
+  subtotal: string;
+}
+
+interface TransactionPayment {
+  id: number;
+  method: string;
+  amount: string;
+  change_amount: string;
+  reference_number: string | null;
+  is_standalone_fallback: boolean;
+}
+
+interface Transaction {
+  id: number;
+  invoice_number: string;
+  subtotal: string;
+  discount_amount: string;
+  tax_amount: string;
+  grand_total: string;
+  status: 'completed' | 'voided';
+  created_at: string;
+  cashier?: { id: number; name: string };
+  items: TransactionItem[];
+  payments: TransactionPayment[];
+}
+
 export default function PosPage() {
   const router = useRouter();
   const { user, clearAuth, token } = useAuthStore();
@@ -90,9 +131,35 @@ export default function PosPage() {
 
   // Supervisor PIN unlock modal
   const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [unlockPin, setUnlockPin] = useState('');
-  const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  const [pinError, setPinError] = useState('');
+
+  // Checkout State
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [payments, setPayments] = useState<PaymentInput[]>([]);
+  
+  // Payment Form State
+  const [payMethod, setPayMethod] = useState<'cash' | 'qris' | 'debit_card' | 'credit_card'>('cash');
+  const [payAmountInput, setPayAmountInput] = useState('');
+  const [payReference, setPayReference] = useState('');
+  const [isStandalone, setIsStandalone] = useState(false);
+  
+  // QRIS Simulation
+  const [qrisSimulating, setQrisSimulating] = useState(false);
+
+  // Post-payment Receipt Modal
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
+
+  // History and Void State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyList, setHistoryList] = useState<Transaction[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showVoidPinModal, setShowVoidPinModal] = useState(false);
+  const [voidingTransactionId, setVoidingTransactionId] = useState<number | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [showVoidReasonModal, setShowVoidReasonModal] = useState(false);
+  const [voidPin, setVoidPin] = useState('');
 
   useEffect(() => {
     setIsHydrated(true);
@@ -159,6 +226,18 @@ export default function PosPage() {
       console.error('Gagal mengambil draft antrean:', err);
     } finally {
       setLoadingDrafts(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await api.get('/transactions');
+      setHistoryList(res.data.data || []);
+    } catch (err) {
+      console.error('Gagal mengambil riwayat transaksi:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -327,19 +406,15 @@ export default function PosPage() {
     }
   };
 
-  const handleUnlockDraft = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUnlockSuccess = async (pin: string) => {
     if (!selectedDraft) return;
     setUnlocking(true);
-    setUnlockError(null);
+    setPinError('');
     try {
-      const res = await api.post(`/order-drafts/${selectedDraft.id}/unlock`, {
-        pin: unlockPin
-      });
+      const res = await api.post(`/order-drafts/${selectedDraft.id}/unlock`, { pin });
       if (res.data.success) {
         setIsDraftLocked(false);
         setShowUnlockModal(false);
-        setUnlockPin('');
         triggerAlert('success', 'Kunci draf pesanan berhasil dibuka. Keranjang sekarang dapat diedit.');
       }
     } catch (err) {
@@ -351,7 +426,7 @@ export default function PosPage() {
           errMsg = response.data.message;
         }
       }
-      setUnlockError(errMsg);
+      setPinError(errMsg);
     } finally {
       setUnlocking(false);
     }
@@ -390,6 +465,268 @@ export default function PosPage() {
 
   const getGrandTotal = () => {
     return getSubtotal() + getTax();
+  };
+
+  // CHECKOUT & PAYMENTS LOGIC
+  const handleOpenCheckout = () => {
+    setPayments([]);
+    setPayMethod('cash');
+    setPayAmountInput(getGrandTotal().toString());
+    setPayReference('');
+    setIsStandalone(false);
+    setShowCheckoutModal(true);
+  };
+
+  const getRemainingBalance = () => {
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount - p.change_amount, 0);
+    return Math.max(0, getGrandTotal() - totalPaid);
+  };
+
+  const getChangeDue = () => {
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    return Math.max(0, totalPaid - getGrandTotal());
+  };
+
+  const handleAddPayment = () => {
+    const amt = parseFloat(payAmountInput);
+    if (isNaN(amt) || amt <= 0) {
+      triggerAlert('error', 'Jumlah pembayaran tidak valid.');
+      return;
+    }
+
+    const remaining = getRemainingBalance();
+    
+    let change = 0;
+    if (payMethod === 'cash') {
+      // Change is only calculated for cash payments when payment exceeds remaining balance
+      if (amt > remaining) {
+        change = amt - remaining;
+      }
+    }
+
+    const newPayment: PaymentInput = {
+      method: payMethod,
+      amount: amt,
+      change_amount: change,
+      reference_number: (payMethod !== 'cash') ? payReference : '',
+      is_standalone_fallback: payMethod !== 'cash' && isStandalone
+    };
+
+    setPayments([...payments, newPayment]);
+    
+    // Reset inputs
+    setPayReference('');
+    const nextRemaining = Math.max(0, remaining - (amt - change));
+    setPayAmountInput(nextRemaining.toString());
+  };
+
+  const handleRemovePayment = (index: number) => {
+    const newPayments = payments.filter((_, idx) => idx !== index);
+    setPayments(newPayments);
+    const totalPaid = newPayments.reduce((sum, p) => sum + p.amount - p.change_amount, 0);
+    setPayAmountInput(Math.max(0, getGrandTotal() - totalPaid).toString());
+  };
+
+  const simulateQrisPayment = () => {
+    setQrisSimulating(true);
+    setTimeout(() => {
+      setQrisSimulating(false);
+      const randRef = 'MOCK-QRIS-' + Math.floor(100000 + Math.random() * 900000);
+      setPayReference(randRef);
+      setIsStandalone(false);
+      triggerAlert('success', 'Simulasi Pembayaran QRIS Berhasil!');
+    }, 2000);
+  };
+
+  const handleFinalizeCheckout = async () => {
+    if (getRemainingBalance() > 0) {
+      triggerAlert('error', 'Pembayaran belum mencukupi.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        order_draft_id: selectedDraft ? selectedDraft.id : null,
+        subtotal: getSubtotal(),
+        discount_amount: 0.00,
+        tax_amount: getTax(),
+        grand_total: getGrandTotal(),
+        payments: payments.map(p => ({
+          method: p.method,
+          amount: p.amount,
+          change_amount: p.change_amount,
+          reference_number: p.reference_number || null,
+          is_standalone_fallback: p.is_standalone_fallback
+        })),
+        items: !selectedDraft ? cartItems.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity
+        })) : null
+      };
+
+      const res = await api.post('/transactions', payload);
+      
+      if (res.data.success) {
+        // Fetch full transaction details for receipt including items
+        const trxId = res.data.data.id;
+        const historyRes = await api.get('/transactions');
+        const fullTrx = (historyRes.data.data || []).find((t: Transaction) => t.id === trxId);
+
+        setCompletedTransaction(fullTrx || res.data.data);
+        setShowCheckoutModal(false);
+        setShowReceiptModal(true);
+        handleResetCart();
+        triggerAlert('success', 'Transaksi berhasil diselesaikan.');
+        fetchCatalog(); // refresh catalog stocks
+      }
+    } catch (err) {
+      console.error(err);
+      let errMsg = 'Gagal memproses transaksi.';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { message?: string } } }).response;
+        if (response?.data?.message) {
+          errMsg = response.data.message;
+        }
+      }
+      triggerAlert('error', errMsg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePrintReceipt = (trx: Transaction) => {
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (!printWindow) {
+      triggerAlert('error', 'Pop-up terblokir oleh browser. Izinkan pop-up untuk cetak struk.');
+      return;
+    }
+
+    const cashierName = trx.cashier?.name || user?.name || 'Staff';
+    
+    // Items html table
+    const itemsHtml = (trx.items || []).map((item: TransactionItem) => `
+      <tr>
+        <td style="padding: 4px 0; font-size: 11px;">${item.product_name}<br/><small>${item.quantity} x Rp ${parseFloat(item.unit_price).toLocaleString('id-ID')}</small></td>
+        <td style="text-align: right; padding: 4px 0; font-size: 11px; font-family: monospace; vertical-align: bottom;">Rp ${parseFloat(item.subtotal).toLocaleString('id-ID')}</td>
+      </tr>
+    `).join('');
+
+    // Payments html
+    const paymentsHtml = (trx.payments || []).map((p: TransactionPayment) => `
+      <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+        <span style="text-transform: uppercase;">${p.method.replace('_', ' ')}:</span>
+        <span style="font-family: monospace;">Rp ${parseFloat(p.amount).toLocaleString('id-ID')}</span>
+      </div>
+      ${p.reference_number ? `<div style="font-size: 9px; color: #555; text-align: right; margin-bottom: 4px;">Ref: ${p.reference_number} ${p.is_standalone_fallback ? '(EDC)' : ''}</div>` : ''}
+    `).join('');
+
+    const changeSum = (trx.payments || []).reduce((sum: number, p: TransactionPayment) => sum + parseFloat(p.change_amount), 0);
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Struk Belanja - ${trx.invoice_number}</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; color: #000; padding: 10px; width: 280px; margin: 0 auto; line-height: 1.2; }
+            .text-center { text-align: center; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            table { width: 100%; border-collapse: collapse; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="text-center">
+            <h2 style="margin: 0; font-size: 14px;">KEPOS POINT OF SALE</h2>
+            <p style="margin: 2px 0; font-size: 10px;">Mall Jakarta Lt. 2 No. 45</p>
+            <p style="margin: 2px 0; font-size: 10px;">Telp: (021) 555-9876</p>
+          </div>
+          <div class="divider"></div>
+          <div style="font-size: 10px; margin-bottom: 6px;">
+            <div>INV: ${trx.invoice_number}</div>
+            <div>TGL: ${new Date(trx.created_at || new Date()).toLocaleString('id-ID')}</div>
+            <div>KASIR: ${cashierName}</div>
+          </div>
+          <div class="divider"></div>
+          <table>
+            ${itemsHtml}
+          </table>
+          <div class="divider"></div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+            <span>Subtotal:</span>
+            <span style="font-family: monospace;">Rp ${parseFloat(trx.subtotal || '0').toLocaleString('id-ID')}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+            <span>PPN (11%):</span>
+            <span style="font-family: monospace;">Rp ${parseFloat(trx.tax_amount || '0').toLocaleString('id-ID')}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: bold; padding: 2px 0;">
+            <span>GRAND TOTAL:</span>
+            <span style="font-family: monospace;">Rp ${parseFloat(trx.grand_total || '0').toLocaleString('id-ID')}</span>
+          </div>
+          <div class="divider"></div>
+          ${paymentsHtml}
+          ${changeSum > 0 ? `
+            <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+              <span>KEMBALIAN:</span>
+              <span style="font-family: monospace;">Rp ${changeSum.toLocaleString('id-ID')}</span>
+            </div>
+          ` : ''}
+          <div class="divider"></div>
+          <div class="text-center" style="font-size: 9px; margin-top: 12px;">
+            Terima Kasih Atas Kunjungan Anda<br/>Struk ini adalah bukti pembayaran sah.
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // VOID LOGIC
+  const handleOpenVoidPin = (trxId: number) => {
+    setVoidingTransactionId(trxId);
+    setVoidReason('');
+    setShowVoidPinModal(true);
+  };
+
+  const handleVoidPinSuccess = async (pin: string) => {
+    setShowVoidPinModal(false);
+    setShowVoidReasonModal(true);
+    setVoidPin(pin);
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!voidReason || voidReason.length < 4) {
+      triggerAlert('error', 'Alasan void minimal harus 4 karakter.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/transactions/${voidingTransactionId}/void`, {
+        pin: voidPin,
+        reason: voidReason
+      });
+
+      if (res.data.success) {
+        triggerAlert('success', 'Transaksi berhasil di-void dan stok dikembalikan.');
+        setShowVoidReasonModal(false);
+        setVoidingTransactionId(null);
+        setVoidReason('');
+        fetchHistory(); // refresh history list
+        fetchCatalog(); // refresh catalog stocks
+      }
+    } catch (err) {
+      console.error(err);
+      let errMsg = 'Gagal membatalkan transaksi.';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { message?: string } } }).response;
+        if (response?.data?.message) {
+          errMsg = response.data.message;
+        }
+      }
+      triggerAlert('error', errMsg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Filter products based on search query and category
@@ -434,7 +771,7 @@ export default function PosPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Shift Info */}
           {activeShift && (
             <div className="hidden md:flex items-center gap-2.5 px-4 py-1.5 rounded-xl bg-slate-800/40 border border-slate-850">
@@ -442,6 +779,17 @@ export default function PosPage() {
               <span className="text-xs text-slate-400">Modal:</span>
               <span className="text-xs font-bold text-violet-400 font-mono">{formatCurrency(activeShift.opening_cash)}</span>
             </div>
+          )}
+
+          {/* History button */}
+          {activeShift && (
+            <button
+              onClick={() => { fetchHistory(); setShowHistoryModal(true); }}
+              className="flex items-center gap-2 px-3.5 py-1.5 h-9 text-xs font-semibold bg-slate-800/40 hover:bg-slate-800 text-slate-350 border border-slate-700/60 rounded-xl transition-all active:scale-95"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>Riwayat</span>
+            </button>
           )}
 
           {/* User Info */}
@@ -586,13 +934,13 @@ export default function PosPage() {
                       <div 
                         key={product.id}
                         onClick={() => !isOutOfStock && handleAddItem(product)}
-                        className={`bg-[#020617] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-md hover:-translate-y-1 hover:border-[#7C3AED]/30 hover:shadow-lg hover:shadow-[#7C3AED]/5 transition-all duration-200 cubic-bezier(0.4, 0, 0.2, 1) group relative cursor-pointer active:scale-98 overflow-hidden ${
+                        className={`bg-[#020617] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-md hover:-translate-y-1 hover:border-[#7C3AED]/30 hover:shadow-lg hover:shadow-[#7C3AED]/5 transition-all duration-200 group relative cursor-pointer active:scale-98 overflow-hidden ${
                           isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
                         }`}
                       >
                         <div>
                           {isOutOfStock ? (
-                            <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-full">Habis</span>
+                            <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-full animate-pulse">Habis</span>
                           ) : isLowStock ? (
                             <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full">Stok {product.stock_quantity}</span>
                           ) : null}
@@ -669,7 +1017,7 @@ export default function PosPage() {
               <div className="flex-1 overflow-y-auto max-h-[350px] space-y-3 pr-1 scrollbar-thin py-2">
                 {cartItems.length === 0 ? (
                   <div className="text-center py-16 text-slate-500">
-                    <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-slate-600 animate-pulse" />
+                    <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-slate-650 animate-pulse" />
                     <p className="text-xs font-semibold text-slate-400">Keranjang Kosong</p>
                     <p className="text-[10px] text-slate-500 mt-1 max-w-[160px] mx-auto">Scan barcode atau pilih menu di sebelah kiri.</p>
                   </div>
@@ -688,7 +1036,7 @@ export default function PosPage() {
                         {!isDraftLocked ? (
                           <button
                             onClick={() => handleRemoveItem(item.product.id)}
-                            className="text-slate-500 hover:text-rose-400 w-7 h-7 flex items-center justify-center rounded transition-colors active:scale-95"
+                            className="text-slate-500 hover:text-rose-450 w-7 h-7 flex items-center justify-center rounded transition-colors active:scale-95"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -696,7 +1044,7 @@ export default function PosPage() {
                           <Lock className="w-3 h-3 text-slate-650" />
                         )}
 
-                        <div className="flex items-center bg-[#0F172A] border border-slate-850 rounded-lg overflow-hidden p-0.5">
+                        <div className="flex items-center bg-[#0F172A] border border-slate-850 rounded-lg overflow-hidden p-0.5 font-mono">
                           <button
                             onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
                             disabled={isDraftLocked}
@@ -750,7 +1098,7 @@ export default function PosPage() {
                 </div>
                 {orderType === 'dine_in' && (
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Nomor Meja:</span>
+                     <span className="text-slate-400">Nomor Meja:</span>
                     <span className="font-bold text-slate-200">{tableNumber || '-'}</span>
                   </div>
                 )}
@@ -780,10 +1128,11 @@ export default function PosPage() {
                 </div>
               </div>
 
-              {/* Checkout trigger placeholder */}
+              {/* Checkout trigger */}
               <button
-                disabled
-                className="w-full h-12 bg-slate-800 text-slate-500 font-bold rounded-xl cursor-not-allowed text-center text-xs flex items-center justify-center gap-2"
+                onClick={handleOpenCheckout}
+                disabled={cartItems.length === 0}
+                className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-650 hover:from-violet-500 hover:to-indigo-550 text-white font-bold rounded-xl text-xs transition-all active:scale-[0.98] disabled:bg-slate-800 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-violet-500/10"
               >
                 <DollarSign className="w-4 h-4" />
                 <span>Bayar & Selesai (Fase 5)</span>
@@ -794,6 +1143,555 @@ export default function PosPage() {
           </div>
         )}
       </div>
+
+      {/* ===== CHECKOUT & SPLIT PAYMENT MODAL ===== */}
+      {showCheckoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-4xl bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-fadeIn my-8">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-violet-400" />
+                <span>Checkout & Proses Pembayaran</span>
+              </h3>
+              <button onClick={() => setShowCheckoutModal(false)} className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              
+              {/* Left Column: Billing Details (2/5 size) */}
+              <div className="lg:col-span-2 bg-[#020617] border border-slate-850 rounded-2xl p-5 space-y-4">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Detail Pembelian</h4>
+                
+                <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                  {cartItems.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-xs py-1 border-b border-slate-900">
+                      <span className="text-slate-350 truncate max-w-[150px]">{item.product.name}</span>
+                      <span className="font-mono text-slate-400">{item.quantity} x {formatCurrency(item.product.sell_price)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-3 border-t border-slate-800 space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Subtotal:</span>
+                    <span className="font-mono text-slate-200">{formatCurrency(getSubtotal())}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>PPN (11%):</span>
+                    <span className="font-mono text-slate-200">{formatCurrency(getTax())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-emerald-400 pt-1 border-t border-slate-900">
+                    <span>Total Tagihan:</span>
+                    <span className="font-mono text-lg">{formatCurrency(getGrandTotal())}</span>
+                  </div>
+                </div>
+
+                {/* Added Payments List */}
+                <div className="pt-3 border-t border-slate-850 space-y-2">
+                  <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Metode Pembayaran Ditambahkan</h5>
+                  {payments.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic">Belum ada pembayaran ditambahkan.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {payments.map((p, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-[#0F172A] border border-slate-850 p-2.5 rounded-xl text-xs">
+                          <div>
+                            <span className="font-semibold uppercase text-violet-400">{p.method.replace('_', ' ')}</span>
+                            {p.reference_number && (
+                              <span className="text-[9px] text-slate-400 font-mono block">Ref: {p.reference_number}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold font-mono text-slate-200">{formatCurrency(p.amount)}</span>
+                            <button onClick={() => handleRemovePayment(idx)} className="text-rose-400 hover:text-rose-300">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Payments Input (3/5 size) */}
+              <div className="lg:col-span-3 space-y-5">
+                
+                {/* Method selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase block">Pilih Metode Pembayaran</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: 'cash', label: 'Tunai', icon: DollarSign },
+                      { id: 'qris', label: 'QRIS', icon: Smartphone },
+                      { id: 'debit_card', label: 'Debit', icon: CreditCard },
+                      { id: 'credit_card', label: 'Kredit', icon: CreditCard },
+                    ].map(m => {
+                      const Icon = m.icon;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setPayMethod(m.id as 'cash' | 'qris' | 'debit_card' | 'credit_card');
+                            setPayReference('');
+                            setIsStandalone(false);
+                          }}
+                          className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+                            payMethod === m.id
+                              ? 'bg-violet-650/15 border-violet-500 text-violet-400 shadow-md shadow-violet-500/5'
+                              : 'bg-[#020617] border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{m.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Amount input */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase block">Jumlah Uang Pembayaran (IDR)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-base font-bold">Rp</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="500"
+                      placeholder="Masukkan jumlah bayar..."
+                      value={payAmountInput}
+                      onChange={(e) => setPayAmountInput(e.target.value)}
+                      className="w-full bg-[#020617] border border-slate-800 rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-white font-mono"
+                    />
+                  </div>
+
+                  {/* Quick cash suggestions */}
+                  {payMethod === 'cash' && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {[5000, 10000, 20000, 50000, 100000, 200000].map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => setPayAmountInput(sug.toString())}
+                          className="px-2.5 py-1.5 bg-[#020617] border border-slate-850 text-slate-400 rounded-lg text-xs font-bold hover:text-white hover:border-slate-700 active:scale-95 transition-all font-mono"
+                        >
+                          {formatCurrency(sug)}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setPayAmountInput(getRemainingBalance().toString())}
+                        className="px-2.5 py-1.5 bg-violet-600/10 border border-violet-500/20 text-violet-400 rounded-lg text-xs font-bold hover:bg-violet-600/20 active:scale-95 transition-all"
+                      >
+                        Uang Pas
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Standalone Fallback / QRIS Simulator Section */}
+                {payMethod !== 'cash' && (
+                  <div className="bg-[#020617] border border-slate-850 rounded-2xl p-4 space-y-3.5">
+                    {payMethod === 'qris' && (
+                      <div className="flex flex-col sm:flex-row items-center gap-4">
+                        {/* Mock QRIS Code */}
+                        <div className="w-28 h-28 bg-white p-1 rounded-xl flex items-center justify-center relative overflow-hidden group shadow-md">
+                          <img
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=simulate-qris-payment"
+                            alt="QRIS Code Simulator"
+                            className="w-full h-full object-contain"
+                          />
+                          {qrisSimulating && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                              <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+                            </div>
+                          )}
+                          <div className="absolute top-0 left-0 w-full h-1 bg-red-500/80 animate-bounce" />
+                        </div>
+                        
+                        <div className="flex-1 space-y-2 text-center sm:text-left">
+                          <h5 className="text-xs font-bold text-slate-200">Simulator Pembayaran Digital (QRIS)</h5>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Simulasikan pemindaian kode QR oleh pelanggan. Klik tombol di bawah untuk mengisi nomor referensi transaksi secara otomatis.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={simulateQrisPayment}
+                            disabled={qrisSimulating}
+                            className="px-3.5 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all active:scale-95 shadow-lg shadow-violet-500/10"
+                          >
+                            <Smartphone className="w-3.5 h-3.5" />
+                            <span>Simulasikan Pembayaran Berhasil</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Standalone Mode Toggle for Cards */}
+                    {payMethod !== 'qris' && (
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                        <div>
+                          <label className="text-xs font-bold text-slate-250">Gunakan Mesin EDC Standalone</label>
+                          <p className="text-[10px] text-slate-500">Aktifkan jika pembayaran di-swipe manual tanpa integrasi API langsung.</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isStandalone}
+                          onChange={(e) => setIsStandalone(e.target.checked)}
+                          className="h-4.5 w-4.5 accent-violet-600 rounded bg-slate-950 border-slate-800 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                        />
+                      </div>
+                    )}
+
+                    {/* Reference trace field */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Nomor Referensi / Trace Number {isStandalone ? 'EDC' : 'Sistem'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Trace / Auth Code / Reference ID..."
+                        value={payReference}
+                        onChange={(e) => setPayReference(e.target.value)}
+                        className="w-full bg-[#0F172A] border border-slate-800 rounded-xl px-4 h-10 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-white"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Payment Action Button */}
+                <button
+                  type="button"
+                  onClick={handleAddPayment}
+                  disabled={!payAmountInput || parseFloat(payAmountInput) <= 0}
+                  className="w-full h-11 bg-slate-850 hover:bg-slate-800 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed text-slate-200 border border-slate-800 rounded-xl text-xs font-bold transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambahkan Pembayaran</span>
+                </button>
+
+                {/* Pay summary totals and action */}
+                <div className="pt-4 border-t border-slate-800 flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs bg-[#020617] border border-slate-850 p-4 rounded-2xl">
+                    <div>
+                      <p className="text-slate-400">Tersisa Harus Dibayar:</p>
+                      <p className="text-lg font-bold text-violet-400 font-mono mt-0.5">{formatCurrency(getRemainingBalance())}</p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-slate-400">Kembalian Uang Tunai:</p>
+                      <p className="text-lg font-bold text-emerald-400 font-mono mt-0.5">{formatCurrency(getChangeDue())}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowCheckoutModal(false)}
+                      className="flex-1 h-12 bg-slate-900 hover:bg-slate-850 text-slate-400 font-bold text-xs rounded-xl transition-all"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleFinalizeCheckout}
+                      disabled={submitting || getRemainingBalance() > 0}
+                      className="flex-[2] h-12 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-550 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2"
+                    >
+                      {submitting && <Loader2 className="w-5 h-5 animate-spin" />}
+                      <span>Konfirmasi & Selesaikan Pembayaran</span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== POST-PAYMENT RECEIPT MODAL ===== */}
+      {showReceiptModal && completedTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="w-full max-w-md bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-fadeIn text-center">
+            
+            <div className="flex flex-col items-center">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 animate-pulse">
+                <CheckCircle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-100">Pembayaran Berhasil!</h3>
+              <p className="text-xs text-slate-400 mt-1">Invoice: <strong className="text-slate-300 font-mono">{completedTransaction.invoice_number}</strong></p>
+            </div>
+
+            {/* Micro Receipt Preview */}
+            <div className="bg-[#020617] border border-slate-850 rounded-2xl p-4 text-left space-y-3 max-h-[200px] overflow-y-auto scrollbar-thin text-xs">
+              <div className="border-b border-slate-850 pb-2 text-[10px] text-slate-400 flex justify-between font-mono">
+                <span>POS KEPOS STORE</span>
+                <span>{new Date(completedTransaction?.created_at || new Date()).toLocaleString('id-ID')}</span>
+              </div>
+              
+              <div className="space-y-1">
+                {(completedTransaction?.items || []).map((item: TransactionItem, idx: number) => (
+                  <div key={idx} className="flex justify-between font-mono">
+                    <span className="text-slate-400 truncate max-w-[200px]">{item.product_name} x{item.quantity}</span>
+                    <span>{formatCurrency(item.subtotal)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-slate-850 pt-2 space-y-1 text-slate-350">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(completedTransaction?.subtotal || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>PPN (11%):</span>
+                  <span>{formatCurrency(completedTransaction?.tax_amount || 0)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-emerald-400 text-sm border-t border-slate-900 pt-1">
+                  <span>Total Tagihan:</span>
+                  <span>{formatCurrency(completedTransaction?.grand_total || 0)}</span>
+                </div>
+              </div>
+
+              {/* Payments details */}
+              <div className="border-t border-dashed border-slate-800 pt-2 space-y-1">
+                {(completedTransaction?.payments || []).map((p: TransactionPayment, idx: number) => (
+                  <div key={idx} className="flex justify-between text-[10px] text-slate-450 uppercase font-mono">
+                    <span>{p.method.replace('_', ' ')}:</span>
+                    <span>{formatCurrency(p.amount)}</span>
+                  </div>
+                ))}
+                {((completedTransaction?.payments || []).reduce((sum: number, p: TransactionPayment) => sum + parseFloat(p.change_amount), 0) > 0) && (
+                  <div className="flex justify-between text-[10px] text-emerald-400 font-bold font-mono">
+                    <span>KEMBALIAN:</span>
+                    <span>{formatCurrency((completedTransaction?.payments || []).reduce((sum: number, p: TransactionPayment) => sum + parseFloat(p.change_amount), 0))}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => handlePrintReceipt(completedTransaction)}
+                className="w-full h-12 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-violet-500/10 transition-all active:scale-98"
+              >
+                <Printer className="w-4.5 h-4.5" />
+                <span>Cetak Struk Belanja (PDF)</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  setCompletedTransaction(null);
+                }}
+                className="w-full h-12 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+              >
+                <span>Mulai Transaksi Baru</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===== TRANSACTION HISTORY MODAL (WITH VOID OPTION) ===== */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-4xl bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-fadeIn">
+            
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-violet-400" />
+                <span>Riwayat Transaksi Hari Ini</span>
+              </h3>
+              <button onClick={() => setShowHistoryModal(false)} className="p-1 rounded-xl hover:bg-white/10 text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div className="text-center py-16 text-slate-400 flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+                <span className="text-xs">Mengambil riwayat transaksi...</span>
+              </div>
+            ) : historyList.length === 0 ? (
+              <div className="text-center py-16 text-slate-500">
+                <ClipboardList className="w-12 h-12 mx-auto mb-2 text-slate-650" />
+                <p className="text-sm">Belum ada transaksi terekam hari ini.</p>
+              </div>
+            ) : (
+              <div className="max-h-[400px] overflow-y-auto space-y-3 pr-1 scrollbar-thin text-xs">
+                
+                {/* Table Header */}
+                <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 py-1.5 border-b border-slate-800">
+                  <div className="col-span-3">No Invoice / Waktu</div>
+                  <div className="col-span-4">Item Pembelian</div>
+                  <div className="col-span-2 text-right">Grand Total</div>
+                  <div className="col-span-1 text-center">Status</div>
+                  <div className="col-span-2 text-right">Aksi</div>
+                </div>
+
+                <div className="space-y-3.5">
+                  {historyList.map(trx => {
+                    const isVoided = trx.status === 'voided';
+                    return (
+                      <div 
+                        key={trx.id}
+                        className={`grid grid-cols-12 gap-2 items-center bg-[#020617] border border-slate-850 p-4 rounded-2xl ${
+                          isVoided ? 'opacity-55 border-rose-500/10' : 'hover:border-slate-800'
+                        }`}
+                      >
+                        {/* Invoice & Time */}
+                        <div className="col-span-3 text-left">
+                          <span className="font-extrabold text-slate-250 block font-mono">{trx.invoice_number}</span>
+                          <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                            {new Date(trx.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {trx.cashier?.name || 'Staff'}
+                          </span>
+                        </div>
+
+                        {/* Items list */}
+                        <div className="col-span-4 text-left max-h-[80px] overflow-y-auto pr-1 scrollbar-none font-mono">
+                          {trx.items.map((item, idx) => (
+                            <div key={idx} className="text-[11px] text-slate-400 leading-tight">
+                              • {item.product_name} x{item.quantity}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Total */}
+                        <div className="col-span-2 text-right font-bold font-mono text-slate-200">
+                          {formatCurrency(trx.grand_total)}
+                        </div>
+
+                        {/* Status */}
+                        <div className="col-span-1 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            isVoided 
+                              ? 'bg-rose-500/15 border border-rose-500/20 text-rose-400' 
+                              : 'bg-emerald-500/15 border border-emerald-500/20 text-emerald-400'
+                          }`}>
+                            {isVoided ? 'Void' : 'Sukses'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="col-span-2 flex justify-end gap-2">
+                          <button
+                            onClick={() => handlePrintReceipt(trx)}
+                            className="p-1.5 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-all active:scale-95"
+                            title="Cetak Struk"
+                          >
+                            <Printer size={15} />
+                          </button>
+                          
+                          {!isVoided ? (
+                            <button
+                              onClick={() => handleOpenVoidPin(trx.id)}
+                              className="px-2.5 py-1.5 bg-rose-550/10 hover:bg-rose-550 border border-rose-500/20 text-rose-450 hover:text-white rounded-lg text-[10px] font-bold transition-all active:scale-95 flex items-center gap-1"
+                            >
+                              <AlertTriangle size={12} />
+                              <span>Void</span>
+                            </button>
+                          ) : (
+                            <div className="w-16 h-8 flex items-center justify-center text-[10px] text-slate-600 italic">
+                              Batal
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== VOID PIN AUTH MODAL (Polymorphic PIN auth modal wrapper) ===== */}
+      <PinAuthModal
+        isOpen={showVoidPinModal}
+        onClose={() => { setShowVoidPinModal(false); setVoidingTransactionId(null); }}
+        onSuccess={handleVoidPinSuccess}
+        title="Otorisasi Void Transaksi"
+        description="Masukkan 6-digit PIN Supervisor atau Manager untuk menyetujui void transaksi ini."
+        errorMessage={pinError}
+        isLoading={unlocking}
+      />
+
+      {/* ===== VOID REASON MODAL ===== */}
+      {showVoidReasonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-fit p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400">
+                <AlertTriangle className="w-8 h-8 animate-pulse" />
+              </div>
+              <h4 className="text-base font-bold">Alasan Void Transaksi</h4>
+              <p className="text-xs text-slate-400">Tindakan ini akan mengembalikan stok barang dan membatalkan status pembayaran.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Alasan Pembatalan</label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Contoh: Pembatalan oleh pembeli / salah input kasir..."
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  className="w-full bg-[#020617] border border-slate-850 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-550 placeholder-slate-700 text-white resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowVoidReasonModal(false);
+                    setVoidingTransactionId(null);
+                    setVoidReason('');
+                    setVoidPin('');
+                  }}
+                  className="flex-1 h-11 bg-slate-900 hover:bg-slate-850 text-slate-400 font-bold text-xs rounded-xl transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmVoid}
+                  disabled={submitting || voidReason.length < 4}
+                  className="flex-[2] h-11 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-550 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>Batalkan Transaksi</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== DRAFT UNLOCK PIN AUTH MODAL WRAPPER ===== */}
+      <PinAuthModal
+        isOpen={showUnlockModal}
+        onClose={() => { setShowUnlockModal(false); }}
+        onSuccess={handleUnlockSuccess}
+        title="Otorisasi Buka Kunci"
+        description="Masukkan 6-digit PIN Supervisor atau Manager untuk mengedit draft antrean pesanan ini."
+        errorMessage={pinError}
+        isLoading={unlocking}
+      />
 
       {/* ===== OPEN SHIFT MODAL ===== */}
       {showOpenShiftModal && (
@@ -829,7 +1727,7 @@ export default function PosPage() {
                     placeholder="100000"
                     value={openingCashInput}
                     onChange={(e) => setOpeningCashInput(e.target.value)}
-                    className="w-full bg-[#020617] border border-slate-800 rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-700 text-white"
+                    className="w-full bg-[#020617] border border-slate-800 rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-700 text-white font-mono"
                   />
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -853,7 +1751,7 @@ export default function PosPage() {
               <button
                 type="submit"
                 disabled={submitting || !openingCashInput}
-                className="w-full h-12 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-lg shadow-[#7C3AED]/15 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                className="w-full h-12 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:bg-slate-800 disabled:text-slate-550 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-lg shadow-[#7C3AED]/15 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-5 h-5 animate-spin" />}
                 <span>Buka Shift</span>
@@ -888,7 +1786,7 @@ export default function PosPage() {
             {/* Warning box */}
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2.5">
               <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-305 leading-relaxed">
+              <p className="text-xs text-amber-300 leading-relaxed">
                 Setelah shift ditutup, Anda akan <strong>otomatis logout</strong> dari sistem. Pastikan semua transaksi sudah selesai diproses.
               </p>
             </div>
@@ -907,7 +1805,7 @@ export default function PosPage() {
                     placeholder="Jumlah setelah dihitung manual..."
                     value={physicalCashInput}
                     onChange={(e) => setPhysicalCashInput(e.target.value)}
-                    className="w-full bg-[#020617] border border-slate-800 rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent placeholder-slate-700 text-white"
+                    className="w-full bg-[#020617] border border-slate-800 rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent placeholder-slate-700 text-white font-mono"
                   />
                 </div>
               </div>
@@ -978,14 +1876,14 @@ export default function PosPage() {
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-1">
-                        Dibuat oleh: <span className="text-slate-350 font-semibold">{draft.creator?.name || 'Staff'}</span> • Berlaku s/d {new Date(draft.expires_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        Dibuat oleh: <span className="text-slate-300 font-semibold">{draft.creator?.name || 'Staff'}</span> • Berlaku s/d {new Date(draft.expires_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-2.5 md:pt-0 border-slate-850">
                       <div className="text-left md:text-right">
                         <span className="text-[10px] text-slate-500 block">Total Est.</span>
-                        <span className="text-xs font-bold text-emerald-450 font-mono">
+                        <span className="text-xs font-bold text-emerald-400 font-mono">
                           {formatCurrency(draft.items?.reduce((sum, it) => sum + parseFloat(it.subtotal), 0) || 0)}
                         </span>
                       </div>
@@ -1002,55 +1900,6 @@ export default function PosPage() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ===== SUPERVISOR PIN UNLOCK MODAL ===== */}
-      {showUnlockModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="relative w-full max-w-sm bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
-            <button
-              onClick={() => { setShowUnlockModal(false); setUnlockPin(''); setUnlockError(null); }}
-              className="absolute top-4 right-4 p-1 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="text-center space-y-2">
-              <div className="mx-auto w-fit p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-450">
-                <Lock className="w-8 h-8" />
-              </div>
-              <h4 className="text-base font-bold">Otorisasi Supervisor</h4>
-              <p className="text-xs text-slate-400">Masukkan PIN supervisor/manager untuk membuka kunci draft antrean ini.</p>
-            </div>
-
-            <form onSubmit={handleUnlockDraft} className="space-y-4">
-              <div className="space-y-2">
-                <input
-                  type="password"
-                  required
-                  maxLength={6}
-                  autoFocus
-                  placeholder="------"
-                  value={unlockPin}
-                  onChange={(e) => setUnlockPin(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-[#020617] border border-slate-800 rounded-xl py-3 text-center text-xl font-bold tracking-[0.75em] focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-800 text-white"
-                />
-                {unlockError && (
-                  <p className="text-[11px] text-rose-400 font-semibold text-center mt-1.5">{unlockError}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={unlocking || unlockPin.length !== 6}
-                className="w-full h-11 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 text-black font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-1.5 active:scale-98"
-              >
-                {unlocking && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>Verifikasi PIN</span>
-              </button>
-            </form>
           </div>
         </div>
       )}
