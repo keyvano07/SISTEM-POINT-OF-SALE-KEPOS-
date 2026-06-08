@@ -156,4 +156,170 @@ class StockAdjustmentController extends Controller
             'data' => $movement
         ], 201);
     }
+
+    /**
+     * Approve a stock adjustment.
+     */
+    public function approve(Request $request, $id)
+    {
+        $user = $request->user();
+
+        // Only manager, supervisor, or super_admin can approve
+        if (!in_array($user->role, ['super_admin', 'manager', 'supervisor'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki wewenang untuk menyetujui penyesuaian stok.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'pin' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Verify the PIN
+        $pinMatched = false;
+        $authorizedUser = null;
+        $authorizedUsers = \App\Models\User::whereIn('role', ['super_admin', 'manager', 'supervisor'])
+            ->where('is_active', true)
+            ->whereNotNull('pin')
+            ->get();
+
+        foreach ($authorizedUsers as $authU) {
+            if (\Illuminate\Support\Facades\Hash::check($request->pin, $authU->pin)) {
+                $pinMatched = true;
+                $authorizedUser = $authU;
+                break;
+            }
+        }
+
+        if (!$pinMatched) {
+            return response()->json([
+                'success' => false,
+                'message' => 'PIN otorisasi tidak valid.'
+            ], 403);
+        }
+
+        // Find the adjustment
+        $adjustment = StockAdjustment::find($id);
+        if (!$adjustment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengajuan penyesuaian stok tidak ditemukan.'
+            ], 404);
+        }
+
+        if ($adjustment->status !== 'pending_approval') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengajuan penyesuaian stok ini sudah diproses.'
+            ], 422);
+        }
+
+        // Run the approval in service/transaction
+        try {
+            $adjustment = $this->stockService->approveAdjustment($adjustment, $authorizedUser);
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengajuan penyesuaian stok berhasil disetujui.',
+                'data' => $adjustment
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memproses persetujuan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject a stock adjustment.
+     */
+    public function reject(Request $request, $id)
+    {
+        $user = $request->user();
+
+        // Only manager, supervisor, or super_admin can reject
+        if (!in_array($user->role, ['super_admin', 'manager', 'supervisor'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki wewenang untuk menolak penyesuaian stok.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'pin' => 'required|string|size:6',
+            'notes' => 'required|string|min:3',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Verify the PIN
+        $pinMatched = false;
+        $authorizedUser = null;
+        $authorizedUsers = \App\Models\User::whereIn('role', ['super_admin', 'manager', 'supervisor'])
+            ->where('is_active', true)
+            ->whereNotNull('pin')
+            ->get();
+
+        foreach ($authorizedUsers as $authU) {
+            if (\Illuminate\Support\Facades\Hash::check($request->pin, $authU->pin)) {
+                $pinMatched = true;
+                $authorizedUser = $authU;
+                break;
+            }
+        }
+
+        if (!$pinMatched) {
+            return response()->json([
+                'success' => false,
+                'message' => 'PIN otorisasi tidak valid.'
+            ], 403);
+        }
+
+        // Find the adjustment
+        $adjustment = StockAdjustment::find($id);
+        if (!$adjustment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengajuan penyesuaian stok tidak ditemukan.'
+            ], 404);
+        }
+
+        if ($adjustment->status !== 'pending_approval') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengajuan penyesuaian stok ini sudah diproses.'
+            ], 422);
+        }
+
+        // Run the rejection in service/transaction
+        try {
+            $adjustment = $this->stockService->rejectAdjustment($adjustment, $authorizedUser, $request->notes);
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengajuan penyesuaian stok berhasil ditolak.',
+                'data' => $adjustment
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memproses penolakan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
+

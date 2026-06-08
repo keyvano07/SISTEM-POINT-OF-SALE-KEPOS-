@@ -31,6 +31,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/stock-adjustments', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'index']);
         Route::post('/stock-adjustments', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'store']);
         Route::post('/stock-adjustments/restock', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'restock']);
+        Route::post('/stock-adjustments/{id}/approve', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'approve']);
+        Route::post('/stock-adjustments/{id}/reject', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'reject']);
 
         // Test Role-Based Access Control (RBAC)
         Route::get('/test-manager-only', function () {

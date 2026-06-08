@@ -69,3 +69,4 @@ Gunakan akun default berikut setelah melakukan fresh migration:
 - **Stocker**: `stocker@toko.com` (password: `password123` | PIN: `112233`)
 - **Supervisor**: `supervisor@toko.com` (password: `password123` | PIN: `123456`)
 - **Kasir**: `kasir@toko.com` (password: `password123` | PIN: `000000`)
+# SISTEM-POINT-OF-SALE-KEPOS-

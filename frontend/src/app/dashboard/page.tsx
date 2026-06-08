@@ -1,125 +1,132 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
-import api from '@/services/api';
-import { LogOut, LayoutDashboard, Shield, Package, Clipboard } from 'lucide-react';
+import { Package, Clipboard, ShoppingCart, UserCheck, ShieldCheck, Mail, Store } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, clearAuth, token } = useAuthStore();
+  const { user } = useAuthStore();
 
-  useEffect(() => {
-    if (!token || !user) {
-      document.cookie = 'pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;';
-      clearAuth();
-      router.push('/login');
-    }
-  }, [token, user, router, clearAuth]);
-
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch (e) {
-      console.error('Logout request failed', e);
-    } finally {
-      document.cookie = 'pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;';
-      clearAuth();
-      router.push('/login');
-    }
-  };
-
-  if (!user || !token) return null;
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-white font-sans">
-      {/* Top Navbar */}
-      <nav className="border-b border-white/10 px-8 py-4 flex justify-between items-center bg-white/5 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-violet-600 rounded-lg">
-            <LayoutDashboard className="w-5 h-5" />
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-[#020617] text-white">
+      {/* Header Section */}
+      <div className="bg-[#0F172A] border border-slate-800 rounded-3xl p-8 shadow-xl">
+        <h2 className="text-3xl font-extrabold mb-2 bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+          Selamat Datang, {user.name}!
+        </h2>
+        <p className="text-slate-400">
+          Anda masuk sebagai <span className="text-violet-400 capitalize font-semibold">{user.role.replace('_', ' ')}</span>. Selamat bekerja!
+        </p>
+
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="p-6 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-slate-700/50 transition-all flex items-center gap-4">
+            <div className="p-3 bg-violet-600/10 text-violet-400 rounded-xl">
+              <Store className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">ID Cabang / Store ID</p>
+              <p className="text-xl font-extrabold text-slate-200 mt-0.5">{user.store_id || 'Pusat'}</p>
+            </div>
           </div>
-          <span className="font-bold text-lg">POS Dashboard</span>
+
+          <div className="p-6 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-slate-700/50 transition-all flex items-center gap-4">
+            <div className="p-3 bg-violet-600/10 text-violet-400 rounded-xl">
+              <Mail className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Email Pegawai</p>
+              <p className="text-base font-semibold text-slate-200 mt-0.5 truncate">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="p-6 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-slate-700/50 transition-all flex items-center gap-4">
+            <div className="p-3 bg-emerald-600/10 text-emerald-400 rounded-xl">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Status Otorisasi</p>
+              <p className="text-base font-bold text-emerald-400 mt-0.5">Aktif & Terkoneksi</p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-white/10 rounded-full">
-              <Shield className="w-4 h-4 text-violet-400" />
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold">{user.name}</p>
-              <p className="text-xs text-gray-400 capitalize">{user.role}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Keluar</span>
-          </button>
-        </div>
-      </nav>
+      </div>
 
-      {/* Main Dashboard Layout */}
-      <main className="max-w-7xl mx-auto p-8">
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 shadow-xl">
-          <h2 className="text-2xl font-bold mb-4">Selamat Datang, {user.name}!</h2>
-          <p className="text-gray-400 mb-6">
-            Anda login sebagai <span className="text-violet-400 capitalize font-medium">{user.role}</span>. Selamat bekerja!
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-              <h3 className="font-bold text-gray-300 text-sm uppercase tracking-wide">ID Cabang</h3>
-              <p className="text-3xl font-extrabold mt-2 text-violet-400">{user.store_id || '-'}</p>
-            </div>
-            <div className="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-              <h3 className="font-bold text-gray-300 text-sm uppercase tracking-wide">Email Pegawai</h3>
-              <p className="text-lg font-semibold mt-2 truncate text-violet-400">{user.email}</p>
-            </div>
-            <div className="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-              <h3 className="font-bold text-gray-300 text-sm uppercase tracking-wide">Status Otorisasi</h3>
-              <p className="text-lg font-semibold mt-2 text-emerald-400">Aktif & Terhubung</p>
-            </div>
-          </div>
-
-          {/* Quick Actions for manager/super_admin */}
+      {/* Quick Access Menu Cards */}
+      <div>
+        <h3 className="text-xl font-extrabold text-slate-100 mb-6 flex items-center gap-2">
+          <span>Akses Cepat Modul</span>
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Manager / Admin: Inventori */}
           {['super_admin', 'manager'].includes(user.role) && (
-            <div className="mt-8 pt-8 border-t border-white/10">
-              <h3 className="text-lg font-bold mb-4">Manajemen Toko</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button
-                  onClick={() => router.push('/dashboard/manager/products')}
-                  className="p-6 bg-violet-600/10 hover:bg-violet-600/20 border border-violet-500/20 rounded-2xl text-left transition-all group"
-                >
-                  <Package className="w-8 h-8 text-violet-400 mb-4 group-hover:scale-105 transition-transform" />
-                  <h4 className="font-bold text-white mb-1 font-sans">Manajemen Inventori</h4>
-                  <p className="text-xs text-gray-400 font-sans">Atur produk, kategori, harga jual, dan lihat status stok kritis.</p>
-                </button>
+            <button
+              onClick={() => router.push('/dashboard/manager/products')}
+              className="p-6 bg-[#0F172A] hover:bg-[#131C33] border border-slate-800 hover:border-violet-500/30 rounded-2xl text-left transition-all group flex flex-col justify-between h-48"
+            >
+              <div className="p-3 bg-violet-600/15 text-violet-400 rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Package className="w-6 h-6" />
               </div>
-            </div>
+              <div>
+                <h4 className="font-extrabold text-white text-lg mb-1">Manajemen Inventori</h4>
+                <p className="text-xs text-slate-400">Atur produk, kategori, harga jual, dan status stok kritis toko.</p>
+              </div>
+            </button>
           )}
 
-          {/* Quick Actions for stocker / supervisor / manager / super_admin */}
+          {/* Stocker / Manager / Admin: Gudang */}
           {['super_admin', 'manager', 'supervisor', 'stocker'].includes(user.role) && (
-            <div className="mt-8 pt-8 border-t border-white/10">
-              <h3 className="text-lg font-bold mb-4">Operasional Gudang</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button
-                  onClick={() => router.push('/dashboard/stocker')}
-                  className="p-6 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 rounded-2xl text-left transition-all group"
-                >
-                  <Clipboard className="w-8 h-8 text-indigo-400 mb-4 group-hover:scale-105 transition-transform" />
-                  <h4 className="font-bold text-white mb-1 font-sans">Gudang & Logistik</h4>
-                  <p className="text-xs text-gray-400 font-sans">Catat penyesuaian stok, restock barang masuk, dan pantau log pergerakan barang.</p>
-                </button>
+            <button
+              onClick={() => router.push('/dashboard/stocker')}
+              className="p-6 bg-[#0F172A] hover:bg-[#131C33] border border-slate-800 hover:border-violet-500/30 rounded-2xl text-left transition-all group flex flex-col justify-between h-48"
+            >
+              <div className="p-3 bg-violet-600/15 text-violet-400 rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Clipboard className="w-6 h-6" />
               </div>
-            </div>
+              <div>
+                <h4 className="font-extrabold text-white text-lg mb-1">Gudang & Logistik</h4>
+                <p className="text-xs text-slate-400">Pencatatan penyesuaian stok, restock barang masuk, dan monitoring log.</p>
+              </div>
+            </button>
+          )}
+
+          {/* Kasir / Manager / Admin: POS */}
+          {['super_admin', 'manager', 'supervisor', 'kasir'].includes(user.role) && (
+            <button
+              onClick={() => router.push('/pos')}
+              className="p-6 bg-[#0F172A] hover:bg-[#131C33] border border-slate-800 hover:border-violet-500/30 rounded-2xl text-left transition-all group flex flex-col justify-between h-48"
+            >
+              <div className="p-3 bg-violet-600/15 text-violet-400 rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <ShoppingCart className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-white text-lg mb-1">Point of Sale (Kasir)</h4>
+                <p className="text-xs text-slate-400">Buka antarmuka kasir utama untuk melakukan checkout transaksi pelanggan.</p>
+              </div>
+            </button>
+          )}
+
+          {/* Pramuniaga / Admin: Draft Order */}
+          {['super_admin', 'manager', 'supervisor', 'pramuniaga'].includes(user.role) && (
+            <button
+              onClick={() => router.push('/pramuniaga')}
+              className="p-6 bg-[#0F172A] hover:bg-[#131C33] border border-slate-800 hover:border-violet-500/30 rounded-2xl text-left transition-all group flex flex-col justify-between h-48"
+            >
+              <div className="p-3 bg-violet-600/15 text-violet-400 rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-white text-lg mb-1">Pramuniaga (Draft Order)</h4>
+                <p className="text-xs text-slate-400">Buat keranjang belanja sementara untuk pelanggan sebelum diproses kasir.</p>
+              </div>
+            </button>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

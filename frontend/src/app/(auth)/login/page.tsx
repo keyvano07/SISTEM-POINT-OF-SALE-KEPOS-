@@ -51,10 +51,11 @@ export default function LoginPage() {
       } else {
         router.push('/dashboard');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message);
+      const errorObj = err as { response?: { data?: { message?: string } } };
+      if (errorObj.response?.data?.message) {
+        setError(errorObj.response.data.message);
       } else {
         setError('Koneksi ke server gagal. Silakan coba lagi.');
       }

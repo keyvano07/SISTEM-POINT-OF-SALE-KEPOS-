@@ -88,4 +88,67 @@ class StockService
             ]);
         });
     }
+
+    /**
+     * Approve a stock adjustment request.
+     */
+    public function approveAdjustment(StockAdjustment $adjustment, User $approver): StockAdjustment
+    {
+        return DB::transaction(function () use ($adjustment, $approver) {
+            $product = Product::findOrFail($adjustment->product_id);
+            $quantityBefore = $product->stock_quantity;
+            $quantityAfter = $quantityBefore + $adjustment->quantity_change;
+
+            // Prevent stock from going below 0
+            if ($quantityAfter < 0) {
+                throw new \Exception('Stok akhir tidak boleh kurang dari 0. Stok saat ini: ' . $quantityBefore);
+            }
+
+            // Update product stock
+            $product->stock_quantity = $quantityAfter;
+            $product->save();
+
+            // Update adjustment record
+            $adjustment->status = 'approved';
+            $adjustment->approved_by = $approver->id;
+            $adjustment->approved_at = now();
+            $adjustment->save();
+
+            // Create immutable stock movement log
+            StockMovement::create([
+                'store_id' => $adjustment->store_id,
+                'product_id' => $product->id,
+                'user_id' => $approver->id,
+                'type' => 'adjustment',
+                'quantity_before' => $quantityBefore,
+                'quantity_change' => $adjustment->quantity_change,
+                'quantity_after' => $quantityAfter,
+                'reference_id' => $adjustment->id,
+                'reference_type' => StockAdjustment::class,
+            ]);
+
+            return $adjustment;
+        });
+    }
+
+    /**
+     * Reject a stock adjustment request.
+     */
+    public function rejectAdjustment(StockAdjustment $adjustment, User $approver, string $rejectNotes): StockAdjustment
+    {
+        return DB::transaction(function () use ($adjustment, $approver, $rejectNotes) {
+            $adjustment->status = 'rejected';
+            $adjustment->approved_by = $approver->id;
+            $adjustment->approved_at = now();
+            
+            // Append rejection reason to notes
+            $originalNotes = $adjustment->notes ? $adjustment->notes . ' | ' : '';
+            $adjustment->notes = $originalNotes . 'Ditolak: ' . $rejectNotes;
+            
+            $adjustment->save();
+
+            return $adjustment;
+        });
+    }
 }
+

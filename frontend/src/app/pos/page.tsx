@@ -10,11 +10,17 @@ export default function PosPage() {
   const router = useRouter();
   const { user, clearAuth, token } = useAuthStore();
 
+  const [isHydrated, setIsHydrated] = React.useState(false);
+
   useEffect(() => {
-    if (!token) {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (isHydrated && !token) {
       router.push('/login');
     }
-  }, [token, router]);
+  }, [token, router, isHydrated]);
 
   const handleLogout = async () => {
     try {
@@ -28,7 +34,7 @@ export default function PosPage() {
     }
   };
 
-  if (!user) return null;
+  if (!isHydrated || !user) return null;
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-white font-sans">
