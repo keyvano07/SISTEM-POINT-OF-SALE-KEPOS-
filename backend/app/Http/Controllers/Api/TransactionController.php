@@ -85,7 +85,7 @@ class TransactionController extends Controller
             'payments.*.is_standalone_fallback' => 'nullable|boolean',
 
             // if order_draft_id is null, direct checkout requires items list
-            'items' => 'required_without:order_draft_id|array',
+            'items' => 'required_without:order_draft_id|nullable|array',
             'items.*.product_id' => 'required_with:items|exists:products,id',
             'items.*.quantity' => 'required_with:items|integer|min:1',
         ], [
@@ -103,46 +103,75 @@ class TransactionController extends Controller
             ], 422);
         }
 
+        // 3. Pre-calculate discounts using DiscountService
         try {
-            $transaction = DB::transaction(function () use ($request, $user, $activeShift) {
-                // Determine items to sell
-                $itemsToSell = [];
+            $itemsForCalc = [];
+            if ($request->order_draft_id) {
+                $draft = OrderDraft::with('items.product')->findOrFail($request->order_draft_id);
+                
+                if ($draft->status === 'completed') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Draf pesanan ini sudah diselesaikan sebelumnya.'
+                    ], 422);
+                }
+                
+                foreach ($draft->items as $draftItem) {
+                    $itemsForCalc[] = [
+                        'product_id' => $draftItem->product_id,
+                        'quantity' => $draftItem->quantity
+                    ];
+                }
+            } else {
+                foreach ($request->items as $itemInput) {
+                    $itemsForCalc[] = [
+                        'product_id' => $itemInput['product_id'],
+                        'quantity' => $itemInput['quantity']
+                    ];
+                }
+            }
 
-                if ($request->order_draft_id) {
-                    $draft = OrderDraft::with('items.product')->findOrFail($request->order_draft_id);
-                    
-                    if ($draft->status === 'completed') {
-                        throw new \Exception('Draf pesanan ini sudah diselesaikan sebelumnya.');
-                    }
-                    
-                    foreach ($draft->items as $draftItem) {
-                        $itemsToSell[] = [
-                            'product_id' => $draftItem->product_id,
-                            'product_name' => $draftItem->product->name,
-                            'quantity' => $draftItem->quantity,
-                            'unit_price' => $draftItem->unit_price,
-                            'discount_id' => null,
-                            'discount_amount' => 0.00,
-                            'subtotal' => $draftItem->subtotal,
-                            'product_model' => $draftItem->product
-                        ];
-                    }
-                } else {
-                    // Direct scan / checkout items
-                    foreach ($request->items as $itemInput) {
-                        $prod = Product::findOrFail($itemInput['product_id']);
-                        $sub = $prod->sell_price * $itemInput['quantity'];
-                        $itemsToSell[] = [
-                            'product_id' => $prod->id,
-                            'product_name' => $prod->name,
-                            'quantity' => $itemInput['quantity'],
-                            'unit_price' => $prod->sell_price,
-                            'discount_id' => null,
-                            'discount_amount' => 0.00,
-                            'subtotal' => $sub,
-                            'product_model' => $prod
-                        ];
-                    }
+            $discountService = resolve(\App\Services\DiscountService::class);
+            $calc = $discountService->calculate($user->store_id, $itemsForCalc, $request->member_id);
+
+            $calculatedSubtotal = $calc['subtotal'];
+            $calculatedDiscountAmount = $calc['item_discounts_total'] + $calc['transaction_discount_amount'];
+            $calculatedGrandTotal = $calc['grand_total'];
+            $transactionDiscountId = $calc['transaction_discount_id'];
+
+            // Validate total payment amount matches or exceeds calculated grand_total
+            $totalPaid = collect($request->payments)->sum('amount');
+            if ($totalPaid < $calculatedGrandTotal) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nominal pembayaran tidak mencukupi. (Total tagihan setelah diskon: ' . $calculatedGrandTotal . ')'
+                ], 422);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghitung kalkulasi diskon: ' . $e->getMessage()
+            ], 422);
+        }
+
+        try {
+            $transaction = DB::transaction(function () use ($request, $user, $activeShift, $calc, $calculatedSubtotal, $calculatedDiscountAmount, $calculatedGrandTotal, $transactionDiscountId) {
+                // Determine items to sell based on calculations
+                $itemsToSell = [];
+                $products = Product::whereIn('id', array_column($calc['items'], 'product_id'))->get()->keyBy('id');
+
+                foreach ($calc['items'] as $itemCalc) {
+                    $prod = $products[$itemCalc['product_id']];
+                    $itemsToSell[] = [
+                        'product_id' => $itemCalc['product_id'],
+                        'product_name' => $itemCalc['product_name'],
+                        'quantity' => $itemCalc['quantity'],
+                        'unit_price' => $itemCalc['unit_price'],
+                        'discount_id' => $itemCalc['discount_id'],
+                        'discount_amount' => $itemCalc['discount_amount'],
+                        'subtotal' => $itemCalc['subtotal'],
+                        'product_model' => $prod
+                    ];
                 }
 
                 // Verify stock availability for all items before cutting stock
@@ -175,14 +204,34 @@ class TransactionController extends Controller
                     'shift_id' => $activeShift->id,
                     'order_draft_id' => $request->order_draft_id,
                     'member_id' => $request->member_id,
-                    'discount_id' => $request->discount_id,
+                    'discount_id' => $transactionDiscountId,
                     'invoice_number' => $invoiceNumber,
-                    'subtotal' => $request->subtotal,
-                    'discount_amount' => $request->discount_amount,
-                    'tax_amount' => $request->tax_amount,
-                    'grand_total' => $request->grand_total,
+                    'subtotal' => $calculatedSubtotal,
+                    'discount_amount' => $calculatedDiscountAmount,
+                    'tax_amount' => $calc['tax_amount'],
+                    'grand_total' => $calculatedGrandTotal,
                     'status' => 'completed',
                 ]);
+
+                // Update member points and total spending
+                if ($request->member_id) {
+                    $member = \App\Models\Member::lockForUpdate()->find($request->member_id);
+                    if ($member) {
+                        $member->points += $calc['earned_points'];
+                        $member->total_spending += $calculatedGrandTotal;
+
+                        // Auto-upgrade tier
+                        if ($member->total_spending >= 5000000) {
+                            $member->tier = 'gold';
+                        } elseif ($member->total_spending >= 1000000) {
+                            $member->tier = 'silver';
+                        } else {
+                            $member->tier = 'bronze';
+                        }
+
+                        $member->save();
+                    }
+                }
 
                 // Create transaction items, cut stock and record stock movements
                 foreach ($itemsToSell as $item) {

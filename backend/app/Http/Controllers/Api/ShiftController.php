@@ -11,6 +11,50 @@ use Illuminate\Support\Facades\Validator;
 class ShiftController extends Controller
 {
     /**
+     * Get a list of all shifts (Supervisor/Manager).
+     */
+    public function index(Request $request)
+    {
+        $user = $request->user();
+
+        // Only manager, supervisor, or super_admin can view all shifts
+        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk melihat riwayat shift.'
+            ], 403);
+        }
+
+        try {
+            $query = Shift::with('cashier')
+                ->where('store_id', $user->store_id)
+                ->orderBy('created_at', 'desc');
+
+            if ($request->has('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->has('audit_status')) {
+                $query->where('audit_status', $request->audit_status);
+            }
+
+            $shifts = $query->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Daftar shift berhasil diambil.',
+                'data' => $shifts
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil daftar shift.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Open a new shift for the cashier.
      */
     public function open(Request $request)

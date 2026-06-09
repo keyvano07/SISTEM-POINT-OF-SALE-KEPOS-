@@ -127,6 +127,30 @@ class StockService
                 'reference_type' => StockAdjustment::class,
             ]);
 
+            // Add Audit Trail logging if the financial value exceeds 100,000 IDR
+            if ($adjustment->financial_value > 100000) {
+                try {
+                    $auditTrailService = resolve(\App\Services\AuditTrailService::class);
+                    $requesterUser = \App\Models\User::find($adjustment->requested_by) ?? $approver;
+                    $auditTrailService->log(
+                        $requesterUser,
+                        'stock_adjustment_approve',
+                        $adjustment,
+                        $approver,
+                        [
+                            'product_name' => $product->name,
+                            'quantity_change' => (int)$adjustment->quantity_change,
+                            'financial_value' => (float)$adjustment->financial_value,
+                            'reason_code' => $adjustment->reason_code,
+                            'approved_at' => now()->toIso8601String(),
+                        ],
+                        (float)$adjustment->financial_value
+                    );
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Gagal menulis audit log stock adjustment: ' . $e->getMessage());
+                }
+            }
+
             return $adjustment;
         });
     }

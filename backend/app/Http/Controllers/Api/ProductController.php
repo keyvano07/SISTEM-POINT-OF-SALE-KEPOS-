@@ -173,6 +173,9 @@ class ProductController extends Controller
             ], 422);
         }
 
+        $oldSellPrice = $product->sell_price;
+        $oldBuyPrice = $product->buy_price;
+
         $product->update([
             'category_id' => $request->category_id,
             'sku' => $request->sku,
@@ -185,6 +188,31 @@ class ProductController extends Controller
             'low_stock_threshold' => $request->low_stock_threshold ?? $product->low_stock_threshold,
             'is_active' => $request->is_active ?? $product->is_active,
         ]);
+
+        $newSellPrice = $product->sell_price;
+        $newBuyPrice = $product->buy_price;
+
+        if ((float)$oldSellPrice != (float)$newSellPrice || (float)$oldBuyPrice != (float)$newBuyPrice) {
+            try {
+                $auditTrailService = resolve(\App\Services\AuditTrailService::class);
+                $auditTrailService->log(
+                    $user,
+                    'price_change',
+                    $product,
+                    null,
+                    [
+                        'product_name' => $product->name,
+                        'old_buy_price' => (float)$oldBuyPrice,
+                        'new_buy_price' => (float)$newBuyPrice,
+                        'old_sell_price' => (float)$oldSellPrice,
+                        'new_sell_price' => (float)$newSellPrice,
+                        'changed_at' => now()->toIso8601String()
+                    ]
+                );
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Gagal menulis audit log price change: ' . $e->getMessage());
+            }
+        }
 
         $product->append('is_low_stock');
 

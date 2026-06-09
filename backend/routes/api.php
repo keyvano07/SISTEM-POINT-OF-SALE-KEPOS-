@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/order-drafts/{id}/unlock', [\App\Http\Controllers\Api\OrderDraftController::class, 'unlock']);
 
         // Shifts (Kasir)
+        Route::get('/shifts', [\App\Http\Controllers\Api\ShiftController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
         Route::post('/shifts/open', [\App\Http\Controllers\Api\ShiftController::class, 'open'])->middleware('role:kasir,super_admin');
         Route::post('/shifts/close', [\App\Http\Controllers\Api\ShiftController::class, 'close'])->middleware('role:kasir,super_admin');
         Route::get('/shifts/active', [\App\Http\Controllers\Api\ShiftController::class, 'active'])->middleware('role:kasir,super_admin');
@@ -55,5 +56,17 @@ Route::prefix('v1')->group(function () {
 
         // Audit Logs (Manager/Supervisor)
         Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
+
+        // Members
+        Route::get('/members', [\App\Http\Controllers\Api\MemberController::class, 'index']);
+        Route::post('/members', [\App\Http\Controllers\Api\MemberController::class, 'store']);
+        Route::get('/members/search', [\App\Http\Controllers\Api\MemberController::class, 'search']);
+
+        // Discounts
+        Route::get('/discounts', [\App\Http\Controllers\Api\DiscountController::class, 'index']);
+        Route::get('/discounts/active', [\App\Http\Controllers\Api\DiscountController::class, 'active']);
+        Route::post('/discounts/calculate', [\App\Http\Controllers\Api\DiscountController::class, 'previewCalculation']);
+        Route::post('/discounts', [\App\Http\Controllers\Api\DiscountController::class, 'store'])->middleware('role:manager,super_admin');
+        Route::delete('/discounts/{id}', [\App\Http\Controllers\Api\DiscountController::class, 'destroy'])->middleware('role:manager,super_admin');
     });
 });

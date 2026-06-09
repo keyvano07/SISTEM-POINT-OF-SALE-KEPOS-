@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/services/api';
 import { 
-  LayoutDashboard, Package, Clipboard, LogOut, ChevronLeft, ChevronRight, ShoppingCart, UserCheck
+  LayoutDashboard, Package, Clipboard, LogOut, ChevronLeft, ChevronRight, ShoppingCart, UserCheck, ShieldCheck, Tag, Users
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -58,6 +58,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       roles: ['super_admin', 'manager']
     },
     {
+      name: 'Promo Diskon',
+      path: '/dashboard/manager/discounts',
+      icon: Tag,
+      roles: ['super_admin', 'manager']
+    },
+    {
+      name: 'Manajemen Member',
+      path: '/dashboard/manager/members',
+      icon: Users,
+      roles: ['super_admin', 'manager', 'supervisor']
+    },
+    {
       name: 'Gudang & Logistik',
       path: '/dashboard/stocker',
       icon: Clipboard,
@@ -74,39 +86,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       path: '/pramuniaga',
       icon: UserCheck,
       roles: ['super_admin', 'manager', 'supervisor', 'pramuniaga']
+    },
+    {
+      name: 'Audit & Rekonsiliasi',
+      path: '/dashboard/supervisor/audit',
+      icon: ShieldCheck,
+      roles: ['super_admin', 'manager', 'supervisor']
     }
   ];
 
   const filteredMenu = menuItems.filter(item => item.roles.includes(user.role));
 
   return (
-    <div className="flex min-h-screen bg-[#020617] text-white overflow-hidden font-sans">
+    <div className="flex min-h-screen bg-background text-on-background overflow-hidden font-sans">
       {/* Sidebar */}
       <aside 
-        className={`bg-[#0F172A] border-r border-slate-800 flex flex-col justify-between transition-all duration-200 ease-in-out z-30 flex-shrink-0 ${
-          isCollapsed ? 'w-20' : 'w-[260px]'
+        className={`bg-surface border-r border-outline-variant flex flex-col justify-between transition-all duration-200 ease-in-out z-30 flex-shrink-0 ${
+          isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         {/* Top Header */}
         <div>
-          <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800 bg-[#0F172A]">
+          <div className="h-16 flex items-center justify-between px-4 border-b border-outline-variant bg-surface">
             <div className={`flex items-center gap-3 transition-opacity duration-200 ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>
-              <div className="p-1.5 bg-violet-600 rounded-lg">
-                <LayoutDashboard className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container shadow-sm">
+                <LayoutDashboard className="w-5 h-5" />
               </div>
-              <span className="font-extrabold text-lg tracking-wider bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">KEPOS</span>
+              <span className="font-bold text-[20px] text-primary tracking-tight">KEPOS</span>
             </div>
             
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all ml-auto"
+              className="p-1.5 hover:bg-surface-container rounded-full text-on-surface-variant transition-colors ml-auto"
             >
               {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
             </button>
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1">
+          <nav className="p-3 space-y-1.5">
             {filteredMenu.map((item) => {
               const isActive = pathname === item.path;
               const Icon = item.icon;
@@ -114,24 +132,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <button
                   key={item.path}
                   onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center h-12 rounded-xl transition-all relative group ${
+                  className={`w-full flex items-center h-11 rounded-xl transition-colors relative group ${
                     isActive 
-                      ? 'bg-violet-600/10 text-white font-semibold' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                  } ${isCollapsed ? 'justify-center px-0' : 'px-4 gap-3'}`}
+                      ? 'bg-primary-container text-on-primary-container font-semibold' 
+                      : 'text-on-surface-variant hover:bg-surface-container'
+                  } ${isCollapsed ? 'justify-center px-0' : 'px-3.5 gap-3'}`}
                 >
-                  {/* Left Active border indicator */}
-                  {isActive && (
-                    <div className="absolute left-0 top-2 bottom-2 w-1 bg-violet-600 rounded-r-full" />
-                  )}
+                  <Icon className={`w-5 h-5 transition-transform group-hover:scale-105 ${isActive ? 'text-on-primary-container' : 'text-on-surface-variant'}`} />
                   
-                  <Icon className={`w-5 h-5 transition-transform group-hover:scale-105 ${isActive ? 'text-violet-400' : 'text-slate-400'}`} />
-                  
-                  {!isCollapsed && <span className="text-sm">{item.name}</span>}
+                  {!isCollapsed && <span className="text-[14px]">{item.name}</span>}
 
                   {/* Tooltip for collapsed state */}
                   {isCollapsed && (
-                    <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-slate-900 border border-slate-800 text-xs font-bold rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-inverse-surface text-inverse-on-surface text-xs font-semibold rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-md">
                       {item.name}
                     </div>
                   )}
@@ -142,30 +155,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Profile and Logout Card */}
-        <div className="p-3 border-t border-slate-800 bg-slate-900/50">
-          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : 'px-2 py-2'}`}>
-            <div className="w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center font-bold text-violet-400 text-sm flex-shrink-0">
+        <div className="p-4 border-t border-outline-variant bg-surface-container-lowest">
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+            <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container text-sm flex-shrink-0">
               {user.name.charAt(0).toUpperCase()}
             </div>
             
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate text-slate-100">{user.name}</p>
-                <p className="text-xs text-slate-400 capitalize truncate">{user.role.replace('_', ' ')}</p>
+                <p className="text-[14px] font-semibold truncate text-on-surface">{user.name}</p>
+                <p className="text-[12px] text-on-surface-variant capitalize truncate">{user.role.replace('_', ' ')}</p>
               </div>
             )}
           </div>
 
           <button
             onClick={handleLogout}
-            className={`w-full mt-2 flex items-center h-10 rounded-xl transition-all text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 relative group ${
-              isCollapsed ? 'justify-center' : 'px-4 gap-3 text-sm font-medium'
+            className={`w-full mt-3 flex items-center h-10 rounded-xl transition-colors text-error hover:bg-error-container hover:text-on-error-container relative group ${
+              isCollapsed ? 'justify-center' : 'px-3 gap-3 text-[14px] font-medium'
             }`}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4.5 h-4.5" />
             {!isCollapsed && <span>Keluar</span>}
             {isCollapsed && (
-              <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-slate-900 border border-slate-800 text-xs font-bold rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              <div className="absolute left-full ml-4 px-3 py-1.5 bg-inverse-surface text-inverse-on-surface text-xs font-semibold rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-md">
                 Keluar
               </div>
             )}
@@ -175,7 +188,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-[#020617]">
+        <main className="flex-1 overflow-y-auto bg-background">
           {children}
         </main>
       </div>

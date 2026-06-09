@@ -1,0 +1,375 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>POS Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "secondary-fixed-dim": "#b9c7df",
+                "secondary-container": "#d5e3fc",
+                "surface-tint": "#0053db",
+                "on-surface-variant": "#434655",
+                "on-tertiary-container": "#eff1f3",
+                "surface-container-highest": "#dae2fd",
+                "error": "#ba1a1a",
+                "tertiary-container": "#6b6e70",
+                "tertiary-fixed-dim": "#c4c7c9",
+                "surface-container-lowest": "#ffffff",
+                "on-secondary-fixed": "#0d1c2e",
+                "on-tertiary-fixed": "#191c1e",
+                "surface-dim": "#d2d9f4",
+                "primary-fixed": "#dbe1ff",
+                "background": "#faf8ff",
+                "primary-container": "#2563eb",
+                "inverse-primary": "#b4c5ff",
+                "on-tertiary": "#ffffff",
+                "on-surface": "#131b2e",
+                "on-primary-container": "#eeefff",
+                "on-primary-fixed": "#00174b",
+                "on-error-container": "#93000a",
+                "on-secondary-container": "#57657a",
+                "secondary": "#515f74",
+                "error-container": "#ffdad6",
+                "on-tertiary-fixed-variant": "#444749",
+                "on-secondary": "#ffffff",
+                "outline-variant": "#c3c6d7",
+                "surface-bright": "#faf8ff",
+                "surface-variant": "#dae2fd",
+                "outline": "#737686",
+                "surface-container": "#eaedff",
+                "on-primary-fixed-variant": "#003ea8",
+                "on-error": "#ffffff",
+                "primary-fixed-dim": "#b4c5ff",
+                "surface": "#faf8ff",
+                "surface-container-high": "#e2e7ff",
+                "inverse-surface": "#283044",
+                "on-secondary-fixed-variant": "#3a485b",
+                "tertiary": "#525657",
+                "tertiary-fixed": "#e0e3e5",
+                "secondary-fixed": "#d5e3fc",
+                "primary": "#004ac6",
+                "on-background": "#131b2e",
+                "on-primary": "#ffffff",
+                "inverse-on-surface": "#eef0ff",
+                "surface-container-low": "#f2f3ff"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "lg": "40px",
+                "xs": "4px",
+                "gutter": "24px",
+                "base": "8px",
+                "margin-desktop": "32px",
+                "margin-mobile": "16px",
+                "sm": "12px",
+                "xl": "64px",
+                "md": "24px"
+        },
+        "fontFamily": {
+                "headline-lg-mobile": [
+                        "Inter"
+                ],
+                "price-display": [
+                        "Inter"
+                ],
+                "body-sm": [
+                        "Inter"
+                ],
+                "title-md": [
+                        "Inter"
+                ],
+                "display-lg": [
+                        "Inter"
+                ],
+                "headline-lg": [
+                        "Inter"
+                ],
+                "label-md": [
+                        "Inter"
+                ],
+                "body-lg": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "1.2",
+                                "fontWeight": "600"
+                        }
+                ],
+                "price-display": [
+                        "28px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-sm": [
+                        "14px",
+                        {
+                                "lineHeight": "1.5",
+                                "fontWeight": "400"
+                        }
+                ],
+                "title-md": [
+                        "20px",
+                        {
+                                "lineHeight": "1.4",
+                                "fontWeight": "500"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "label-md": [
+                        "12px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "16px",
+                        {
+                                "lineHeight": "1.6",
+                                "fontWeight": "400"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background h-screen overflow-hidden flex font-body-sm text-body-sm">
+<!-- SideNavBar (Shared Component) -->
+<nav class="fixed left-0 top-0 h-full flex flex-col h-screen w-64 border-r border-outline-variant bg-surface dark:bg-surface-container-high z-20">
+<div class="p-md border-b border-outline-variant flex items-center gap-md">
+<div class="w-12 h-12 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+</div>
+<div>
+<h1 class="text-title-md font-title-md text-primary dark:text-inverse-primary tracking-tight">POS System</h1>
+<p class="text-label-md font-label-md text-on-surface-variant">Terminal 01</p>
+</div>
+</div>
+<div class="flex-1 py-md px-sm overflow-y-auto flex flex-col gap-xs">
+<!-- Active Tab -->
+<a class="bg-primary-container text-on-primary-container font-label-md rounded-xl flex items-center gap-md px-md py-sm transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-label-md font-label-md">Dashboard</span>
+</a>
+<!-- Inactive Tabs -->
+<a class="text-on-surface-variant rounded-xl flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-label-md font-label-md">Transactions</span>
+</a>
+<a class="text-on-surface-variant rounded-xl flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-label-md font-label-md">Inventory</span>
+</a>
+<a class="text-on-surface-variant rounded-xl flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="text-label-md font-label-md">Reports</span>
+</a>
+<a class="text-on-surface-variant rounded-xl flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-label-md font-label-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col h-screen relative">
+<!-- TopNavBar (Shared Component) -->
+<header class="flex justify-between items-center w-full px-lg py-sm max-w-[calc(100%)] h-20 bg-surface dark:bg-surface-container-high border-b border-outline-variant z-10 flex-shrink-0 shadow-sm">
+<div class="flex items-center">
+<h2 class="text-headline-lg font-headline-lg text-on-surface dark:text-inverse-primary">Checkout</h2>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full transition-colors p-sm">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full transition-colors p-sm">
+<span class="material-symbols-outlined">wifi</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full transition-colors p-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Dashboard Canvas -->
+<main class="flex-1 p-margin-desktop overflow-y-auto pb-32 bg-background">
+<!-- Summary Cards Section (Bento Grid Style) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-lg">
+<!-- Card 1: Total Sales -->
+<div class="border border-outline-variant rounded-2xl shadow-sm bg-surface p-md flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<h3 class="text-label-md font-label-md text-on-surface-variant">Total Penjualan</h3>
+<span class="material-symbols-outlined text-primary bg-primary-container text-on-primary-container p-xs rounded-lg">payments</span>
+</div>
+<div>
+<p class="text-price-display font-price-display text-on-surface">Rp 12.4M</p>
+<p class="text-label-md font-label-md text-on-surface-variant mt-xs">+14% dari kemarin</p>
+</div>
+</div>
+<!-- Card 2: Total Orders -->
+<div class="rounded-2xl shadow-md bg-primary text-on-primary p-md flex flex-col justify-between h-40 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-bl-full"></div>
+<div class="flex justify-between items-start relative z-10">
+<h3 class="text-label-md font-label-md text-primary-fixed-dim">Total Pesanan</h3>
+<span class="material-symbols-outlined text-on-primary">receipt</span>
+</div>
+<div class="relative z-10">
+<p class="text-price-display font-price-display text-on-primary">342</p>
+<p class="text-label-md font-label-md text-primary-fixed-dim mt-xs">24 pesanan tertunda</p>
+</div>
+</div>
+<!-- Card 3: Average Value -->
+<div class="border border-outline-variant rounded-2xl shadow-sm bg-surface p-md flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<h3 class="text-label-md font-label-md text-on-surface-variant">Rata-rata Nilai</h3>
+<span class="material-symbols-outlined text-primary bg-primary-container text-on-primary-container p-xs rounded-lg">analytics</span>
+</div>
+<div>
+<p class="text-price-display font-price-display text-on-surface">Rp 36K</p>
+<p class="text-label-md font-label-md text-on-surface-variant mt-xs">-2% dari kemarin</p>
+</div>
+</div>
+</section>
+<!-- Line Chart Section (Minimalist Digital) -->
+<section class="border border-outline-variant rounded-2xl shadow-sm bg-surface p-md mb-lg">
+<div class="flex justify-between items-center mb-md pb-sm">
+<h3 class="text-title-md font-title-md text-on-surface">Tren Penjualan</h3>
+<div class="flex gap-sm">
+<button class="bg-primary text-on-primary rounded-lg px-sm py-xs text-label-md font-label-md shadow-sm transition-colors hover:bg-primary/90">Hari Ini</button>
+<button class="bg-surface border border-outline-variant text-on-surface-variant rounded-lg px-sm py-xs text-label-md font-label-md transition-colors hover:bg-surface-container">Minggu Ini</button>
+</div>
+</div>
+<!-- Abstract SVG Line Chart -->
+<div class="h-64 w-full relative pt-md">
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between py-md pointer-events-none">
+<div class="border-t border-outline-variant w-full opacity-50"></div>
+<div class="border-t border-outline-variant w-full opacity-50"></div>
+<div class="border-t border-outline-variant w-full opacity-50"></div>
+<div class="border-t border-outline-variant w-full opacity-50"></div>
+</div>
+<!-- Chart Line -->
+<svg class="w-full h-full absolute inset-0 overflow-visible" preserveAspectRatio="none" viewBox="0 0 1000 200">
+<!-- Area Fill -->
+<path d="M0,180 L100,150 L200,160 L300,90 L400,110 L500,40 L600,60 L700,20 L800,80 L900,30 L1000,50 L1000,200 L0,200 Z" fill="url(#chart-gradient)" opacity="0.2"></path>
+<defs>
+<linearGradient id="chart-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#0053db"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</linearGradient>
+</defs>
+<!-- Data Line -->
+<path d="M0,180 L100,150 L200,160 L300,90 L400,110 L500,40 L600,60 L700,20 L800,80 L900,30 L1000,50" fill="none" stroke="#0053db" stroke-linejoin="round" stroke-width="3"></path>
+<!-- Data Points -->
+<circle cx="300" cy="90" fill="white" r="5" stroke="#0053db" stroke-width="2"></circle>
+<circle cx="500" cy="40" fill="white" r="5" stroke="#0053db" stroke-width="2"></circle>
+<circle cx="700" cy="20" fill="#0053db" r="6" stroke="white" stroke-width="2"></circle> <!-- Peak Highlight -->
+</svg>
+<!-- X-Axis Labels -->
+<div class="absolute bottom-0 w-full flex justify-between text-label-md font-label-md text-on-surface-variant translate-y-8">
+<span>08:00</span>
+<span>12:00</span>
+<span>16:00</span>
+<span>20:00</span>
+<span>00:00</span>
+</div>
+</div>
+</section>
+<!-- Recent Transactions List -->
+<section class="border border-outline-variant rounded-2xl shadow-sm bg-surface flex flex-col overflow-hidden">
+<div class="p-md border-b border-outline-variant bg-surface flex justify-between items-center">
+<h3 class="text-title-md font-title-md text-on-surface">Transaksi Terbaru</h3>
+<button class="text-label-md font-label-md text-primary hover:text-primary/80 transition-colors">Lihat Semua</button>
+</div>
+<div class="flex flex-col">
+<!-- List Header -->
+<div class="grid grid-cols-5 p-md border-b border-outline-variant bg-surface-container-low text-label-md font-label-md text-on-surface-variant">
+<div class="col-span-1">Waktu</div>
+<div class="col-span-1">ID Pesanan</div>
+<div class="col-span-1">Item</div>
+<div class="col-span-1 text-right">Total</div>
+<div class="col-span-1 text-right">Status</div>
+</div>
+<!-- Item 1 (Active/Highlighted state example) -->
+<div class="grid grid-cols-5 p-md border-b border-outline-variant bg-surface-container-low text-body-sm font-body-sm text-on-surface items-center cursor-pointer hover:bg-surface-container transition-colors">
+<div class="col-span-1 text-on-surface-variant">14:32</div>
+<div class="col-span-1 font-title-md text-on-surface">#ORD-9021</div>
+<div class="col-span-1 text-on-surface-variant">3 item</div>
+<div class="col-span-1 text-right font-title-md text-on-surface">Rp 145.000</div>
+<div class="col-span-1 text-right flex justify-end">
+<span class="inline-block px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-label-md font-label-md">Selesai</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="grid grid-cols-5 p-md border-b border-outline-variant bg-surface text-body-sm font-body-sm text-on-surface items-center cursor-pointer hover:bg-surface-container transition-colors">
+<div class="col-span-1 text-on-surface-variant">14:28</div>
+<div class="col-span-1 font-title-md text-on-surface">#ORD-9020</div>
+<div class="col-span-1 text-on-surface-variant">1 item</div>
+<div class="col-span-1 text-right font-title-md text-on-surface">Rp 45.000</div>
+<div class="col-span-1 text-right flex justify-end">
+<span class="inline-block px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-label-md font-label-md">Selesai</span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="grid grid-cols-5 p-md border-b border-outline-variant bg-surface text-body-sm font-body-sm text-on-surface items-center cursor-pointer hover:bg-surface-container transition-colors">
+<div class="col-span-1 text-on-surface-variant">14:15</div>
+<div class="col-span-1 font-title-md text-on-surface">#ORD-9019</div>
+<div class="col-span-1 text-on-surface-variant">5 item</div>
+<div class="col-span-1 text-right font-title-md text-on-surface">Rp 320.000</div>
+<div class="col-span-1 text-right flex justify-end">
+<span class="inline-block px-sm py-xs bg-primary-container text-on-primary-container rounded-full text-label-md font-label-md">Proses</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="fixed bottom-0 right-0 w-[calc(100%-16rem)] flex justify-between items-center px-lg py-md border-t border-outline-variant bg-surface/80 backdrop-blur-sm dark:bg-surface-container-high z-10 flex-shrink-0">
+<div class="text-label-md font-label-md text-on-surface-variant">
+                System Status: Online | Version 2.4.0
+            </div>
+<div class="flex gap-md">
+<a class="text-label-md font-label-md text-primary dark:text-inverse-primary hover:underline transition-colors" href="#">Support</a>
+<a class="text-label-md font-label-md text-primary dark:text-inverse-primary hover:underline transition-colors" href="#">End Shift</a>
+</div>
+</footer>
+</div>
+</body></html>

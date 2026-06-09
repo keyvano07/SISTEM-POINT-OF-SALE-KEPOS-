@@ -216,30 +216,30 @@ export default function ProductManagementPage() {
   const totalCategoriesCount = categories.length;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 bg-[#020617] text-white font-sans">
+    <div className="p-8 max-w-7xl mx-auto space-y-6 bg-background text-on-background font-sans">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0F172A] border border-slate-800 p-6 rounded-2xl shadow-lg">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant p-6 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-violet-600/10 text-violet-400 rounded-xl">
+          <div className="p-3 bg-primary/10 text-primary rounded-xl">
             <Package className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Manajemen Inventori</h1>
-            <p className="text-xs text-slate-400">Kelola produk, kategori, harga jual, dan stok toko KEPOS</p>
+            <h1 className="text-2xl font-extrabold text-on-surface">Manajemen Inventori</h1>
+            <p className="text-xs text-on-surface-variant">Kelola produk, kategori, harga jual, dan stok toko KEPOS</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsCatModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-[#020617] hover:bg-slate-800 border border-slate-800 rounded-xl transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-surface-container hover:bg-surface-container border border-outline-variant rounded-xl transition-all"
           >
-            <Tag className="w-4 h-4 text-violet-400" />
+            <Tag className="w-4 h-4 text-primary" />
             <span>Kategori Baru</span>
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-violet-600 hover:bg-violet-500 rounded-xl shadow-lg transition-all active:scale-98"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-primary hover:bg-primary/95 text-white rounded-xl shadow-md transition-all active:scale-[0.98] shadow-primary/10"
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Produk</span>
@@ -253,8 +253,8 @@ export default function ProductManagementPage() {
         {alertMsg && (
           <div className={`flex items-center gap-3 p-4 rounded-2xl border max-w-md ml-auto ${
             alertMsg.type === 'success' 
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+              ? 'bg-success/10 border-success/20 text-emerald-600' 
+              : 'bg-error/10 border-error/20 text-error'
           }`}>
             {alertMsg.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
             <span className="text-sm font-medium">{alertMsg.text}</span>
@@ -263,31 +263,31 @@ export default function ProductManagementPage() {
 
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 bg-[#0F172A] border border-slate-800 rounded-3xl flex items-center justify-between transition-all duration-300 hover:translate-y-[-2px] hover:border-slate-700/50 shadow-lg">
+          <div className="p-6 bg-surface-container-lowest border border-outline-variant rounded-3xl flex items-center justify-between transition-all duration-300 hover:translate-y-[-2px] hover:border-outline-variant/50 shadow-lg">
             <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Produk</h3>
+              <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total Produk</h3>
               <p className="text-3xl font-extrabold mt-1 text-white">{totalProductsCount}</p>
             </div>
-            <div className="p-3 bg-violet-600/10 rounded-xl text-violet-400">
+            <div className="p-3 bg-primary/10 rounded-xl text-primary">
               <Package className="w-6 h-6" />
             </div>
           </div>
           <div className={`p-6 border rounded-3xl flex items-center justify-between transition-all duration-300 hover:translate-y-[-2px] shadow-lg ${
             lowStockCount > 0 
-              ? 'bg-[#451a22] border-rose-500/25 hover:border-rose-500/40 text-rose-400' 
-              : 'bg-[#0F172A] border-slate-800 hover:border-slate-700/50'
+              ? 'bg-[#451a22] border-rose-500/25 hover:border-error/40 text-error' 
+              : 'bg-surface-container-lowest border-outline-variant hover:border-outline-variant/50'
           }`}>
             <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Stok Kritis (Low)</h3>
-              <p className={`text-3xl font-extrabold mt-1 ${lowStockCount > 0 ? 'text-rose-400' : 'text-slate-300'}`}>{lowStockCount}</p>
+              <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Stok Kritis (Low)</h3>
+              <p className={`text-3xl font-extrabold mt-1 ${lowStockCount > 0 ? 'text-error' : 'text-on-surface-variant'}`}>{lowStockCount}</p>
             </div>
-            <div className={`p-3 rounded-xl ${lowStockCount > 0 ? 'bg-rose-500/15 text-rose-400' : 'bg-slate-800 text-slate-400'}`}>
+            <div className={`p-3 rounded-xl ${lowStockCount > 0 ? 'bg-error/15 text-error' : 'bg-surface-container text-on-surface-variant'}`}>
               <AlertTriangle className="w-6 h-6" />
             </div>
           </div>
-          <div className="p-6 bg-[#0F172A] border border-slate-800 rounded-3xl flex items-center justify-between transition-all duration-300 hover:translate-y-[-2px] hover:border-slate-700/50 shadow-lg">
+          <div className="p-6 bg-surface-container-lowest border border-outline-variant rounded-3xl flex items-center justify-between transition-all duration-300 hover:translate-y-[-2px] hover:border-outline-variant/50 shadow-lg">
             <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Kategori</h3>
+              <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total Kategori</h3>
               <p className="text-3xl font-extrabold mt-1 text-white">{totalCategoriesCount}</p>
             </div>
             <div className="p-3 bg-indigo-600/10 rounded-xl text-indigo-400">
@@ -297,7 +297,7 @@ export default function ProductManagementPage() {
         </div>
 
         {/* Inventory Management Table / Controller Area */}
-        <div className="bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-xl space-y-6">
           
           {/* Controls: Search and Filters */}
           <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
@@ -305,28 +305,28 @@ export default function ProductManagementPage() {
             {/* Search Input */}
             <div className="relative w-full md:max-w-sm">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Search className="w-5 h-5 text-slate-500" />
+                <Search className="w-5 h-5 text-on-surface-variant" />
               </span>
               <input
                 type="text"
                 placeholder="Cari SKU, Barcode, atau nama produk..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-sm"
+                className="w-full pl-11 pr-4 py-2.5 bg-surface-container border border-outline-variant rounded-xl text-white placeholder-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm"
               />
             </div>
 
             {/* Category Filter Dropdown */}
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <Filter className="w-4 h-4 text-slate-400" />
+              <Filter className="w-4 h-4 text-on-surface-variant" />
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-sm w-full md:w-48"
+                className="px-4 py-2.5 bg-surface-container border border-outline-variant rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm w-full md:w-48"
               >
-                <option value="" className="bg-[#0F172A]">Semua Kategori</option>
+                <option value="" className="bg-surface-container-lowest">Semua Kategori</option>
                 {categories.map(cat => (
-                  <option key={cat.id} value={cat.id} className="bg-[#0F172A]">{cat.name}</option>
+                  <option key={cat.id} value={cat.id} className="bg-surface-container-lowest">{cat.name}</option>
                 ))}
               </select>
             </div>
@@ -335,21 +335,21 @@ export default function ProductManagementPage() {
 
           {/* Table Container */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500 gap-3">
+            <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant gap-3">
               <Loader2 className="w-10 h-10 animate-spin text-violet-500" />
               <span>Memproses data inventori...</span>
             </div>
           ) : error ? (
-            <div className="text-center py-20 text-rose-400 font-semibold">{error}</div>
+            <div className="text-center py-20 text-error font-semibold">{error}</div>
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-20 text-slate-500">
+            <div className="text-center py-20 text-on-surface-variant">
               Tidak ada produk yang cocok dengan pencarian / filter Anda.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#020617]/40">
+            <div className="overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container/40">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="bg-slate-950/60 text-slate-300 font-semibold border-b border-slate-800">
+                  <tr className="bg-surface-container-lowest/60 text-on-surface-variant font-semibold border-b border-outline-variant">
                     <th className="p-4">SKU / Barcode</th>
                     <th className="p-4">Nama Produk</th>
                     <th className="p-4">Kategori</th>
@@ -362,46 +362,46 @@ export default function ProductManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {filteredProducts.map(product => (
-                    <tr key={product.id} className="hover:bg-slate-800/20 transition-all group">
-                      <td className="p-4 font-mono text-xs text-slate-400">
+                    <tr key={product.id} className="hover:bg-surface-container/20 transition-all group">
+                      <td className="p-4 font-mono text-xs text-on-surface-variant">
                         <span className="block text-white font-semibold">{product.sku}</span>
                         <span>{product.barcode}</span>
                       </td>
                       <td className="p-4">
-                        <div className="font-semibold text-slate-200 group-hover:text-white transition-colors">{product.name}</div>
-                        {product.description && <div className="text-xs text-slate-500 truncate max-w-[200px] mt-0.5">{product.description}</div>}
+                        <div className="font-semibold text-on-surface group-hover:text-on-surface transition-colors">{product.name}</div>
+                        {product.description && <div className="text-xs text-on-surface-variant truncate max-w-[200px] mt-0.5">{product.description}</div>}
                       </td>
                       <td className="p-4">
-                        <span className="px-2.5 py-1 bg-violet-500/10 text-violet-400 rounded-full text-xs font-semibold border border-violet-500/15">
+                        <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold border border-primary/20">
                           {product.category?.name || 'Uncategorized'}
                         </span>
                       </td>
-                      <td className="p-4 text-right font-mono text-slate-400">
+                      <td className="p-4 text-right font-mono text-on-surface-variant">
                         Rp {parseFloat(product.buy_price).toLocaleString('id-ID')}
                       </td>
-                      <td className="p-4 text-right font-mono text-emerald-400 font-semibold">
+                      <td className="p-4 text-right font-mono text-emerald-600 font-semibold">
                         Rp {parseFloat(product.sell_price).toLocaleString('id-ID')}
                       </td>
                       <td className="p-4 text-center">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           product.is_low_stock 
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 animate-pulse' 
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            ? 'bg-error/10 text-error border border-error/20 animate-pulse' 
+                            : 'bg-success/10 text-emerald-600 border border-success/20'
                         }`}>
                           {product.stock_quantity}
                         </span>
                         {product.is_low_stock && (
-                          <span className="block text-[10px] text-rose-400 mt-1.5 font-semibold">Low Stock (&le;{product.low_stock_threshold})</span>
+                          <span className="block text-[10px] text-error mt-1.5 font-semibold">Low Stock (&le;{product.low_stock_threshold})</span>
                         )}
                       </td>
                       <td className="p-4 text-center">
                         {product.is_active ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/10 text-emerald-600 border border-success/25">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             Aktif
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface-container text-on-surface-variant border border-outline-variant">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                             Non-Aktif
                           </span>
@@ -410,7 +410,7 @@ export default function ProductManagementPage() {
                       <td className="p-4 text-center">
                         <button
                           onClick={() => handleOpenEditModal(product)}
-                          className="p-2 bg-slate-900 hover:bg-slate-800 text-violet-400 hover:text-white rounded-xl transition-all border border-slate-800 hover:border-slate-700"
+                          className="p-2 bg-surface-container-high hover:bg-surface-container text-primary hover:text-on-surface rounded-xl transition-all border border-outline-variant hover:border-outline-variant"
                           title="Edit Produk"
                         >
                           <Edit className="w-4 h-4" />
@@ -429,11 +429,11 @@ export default function ProductManagementPage() {
 
       {/* MODAL: Tambah Produk Baru */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0F172A] border border-slate-800 rounded-3xl w-full max-w-lg p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl w-full max-w-lg p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-4">
               <h2 className="text-xl font-extrabold text-white">Tambah Produk Baru</h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-850 rounded-lg transition-colors">
+              <button onClick={() => setIsAddModalOpen(false)} className="text-on-surface-variant hover:text-on-surface p-1.5 hover:bg-surface-container-low rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -441,104 +441,104 @@ export default function ProductManagementPage() {
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">SKU</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">SKU</label>
                   <input
                     type="text" required placeholder="INDM-GRG-001"
                     value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Barcode</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Barcode</label>
                   <input
                     type="text" required placeholder="89686011162"
                     value={formData.barcode} onChange={(e) => setFormData({...formData, barcode: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Nama Produk</label>
+                <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Nama Produk</label>
                 <input
                   type="text" required placeholder="Indomie Goreng Original"
                   value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                  className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Kategori</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Kategori</label>
                   <select
                     value={formData.category_id} onChange={(e) => setFormData({...formData, category_id: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   >
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id} className="bg-[#0F172A]">{cat.name}</option>
+                      <option key={cat.id} value={cat.id} className="bg-surface-container-lowest">{cat.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Low Stock Threshold</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Low Stock Threshold</label>
                   <input
                     type="number" required min="0"
                     value={formData.low_stock_threshold} onChange={(e) => setFormData({...formData, low_stock_threshold: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Harga Pokok (Beli)</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Harga Pokok (Beli)</label>
                   <input
                     type="number" required min="0" placeholder="2500"
                     value={formData.buy_price} onChange={(e) => setFormData({...formData, buy_price: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Harga Jual</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Harga Jual</label>
                   <input
                     type="number" required min="0" placeholder="3100"
                     value={formData.sell_price} onChange={(e) => setFormData({...formData, sell_price: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Stok Awal</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Stok Awal</label>
                   <input
                     type="number" required min="0"
                     value={formData.stock_quantity} onChange={(e) => setFormData({...formData, stock_quantity: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
                 <div className="space-y-2 flex items-center pt-6">
                   <input
                     type="checkbox" id="isActiveAdd"
                     checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                    className="w-4.5 h-4.5 rounded accent-violet-600 focus:ring-violet-550 bg-slate-950 border border-slate-800"
+                    className="w-4.5 h-4.5 rounded accent-primary focus:ring-primary/95 bg-surface-container border border-outline-variant"
                   />
-                  <label htmlFor="isActiveAdd" className="ml-2.5 text-sm text-slate-300 font-semibold cursor-pointer">Status Aktif</label>
+                  <label htmlFor="isActiveAdd" className="ml-2.5 text-sm text-on-surface-variant font-semibold cursor-pointer">Status Aktif</label>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Keterangan (Deskripsi)</label>
+                <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Keterangan (Deskripsi)</label>
                 <textarea
                   placeholder="Keterangan opsional..." rows={3}
                   value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                  className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full h-12 bg-violet-600 hover:bg-violet-550 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 transition-all active:scale-98 flex items-center justify-center mt-6"
+                className="w-full h-12 bg-primary hover:bg-primary/95 text-white font-bold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center mt-6"
               >
                 Simpan Produk
               </button>
@@ -549,11 +549,11 @@ export default function ProductManagementPage() {
 
       {/* MODAL: Edit Produk */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0F172A] border border-slate-800 rounded-3xl w-full max-w-lg p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl w-full max-w-lg p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-4">
               <h2 className="text-xl font-extrabold text-white">Edit Detail Produk</h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-850 rounded-lg transition-colors">
+              <button onClick={() => setIsEditModalOpen(false)} className="text-on-surface-variant hover:text-on-surface p-1.5 hover:bg-surface-container-low rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -561,104 +561,104 @@ export default function ProductManagementPage() {
             <form onSubmit={handleEditProduct} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">SKU</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">SKU</label>
                   <input
                     type="text" required
                     value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Barcode</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Barcode</label>
                   <input
                     type="text" required
                     value={formData.barcode} onChange={(e) => setFormData({...formData, barcode: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Nama Produk</label>
+                <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Nama Produk</label>
                 <input
                   type="text" required
                   value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                  className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Kategori</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Kategori</label>
                   <select
                     value={formData.category_id} onChange={(e) => setFormData({...formData, category_id: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   >
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id} className="bg-[#0F172A]">{cat.name}</option>
+                      <option key={cat.id} value={cat.id} className="bg-surface-container-lowest">{cat.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Low Stock Threshold</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Low Stock Threshold</label>
                   <input
                     type="number" required min="0"
                     value={formData.low_stock_threshold} onChange={(e) => setFormData({...formData, low_stock_threshold: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Harga Pokok (Beli)</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Harga Pokok (Beli)</label>
                   <input
                     type="number" required min="0"
                     value={formData.buy_price} onChange={(e) => setFormData({...formData, buy_price: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Harga Jual</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Harga Jual</label>
                   <input
                     type="number" required min="0"
                     value={formData.sell_price} onChange={(e) => setFormData({...formData, sell_price: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Stok Saat Ini (Hanya-Baca)</label>
+                  <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Stok Saat Ini (Hanya-Baca)</label>
                   <input
                     type="text" disabled
                     value={formData.stock_quantity}
-                    className="w-full bg-[#020617] border border-slate-850 rounded-xl px-4 py-2.5 text-sm text-slate-500 cursor-not-allowed"
+                    className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm text-on-surface-variant cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2 flex items-center pt-6">
                   <input
                     type="checkbox" id="isActiveEdit"
                     checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                    className="w-4.5 h-4.5 rounded accent-violet-600 focus:ring-violet-550 bg-slate-950 border border-slate-800"
+                    className="w-4.5 h-4.5 rounded accent-primary focus:ring-primary/95 bg-surface-container border border-outline-variant"
                   />
-                  <label htmlFor="isActiveEdit" className="ml-2.5 text-sm text-slate-300 font-semibold cursor-pointer">Status Aktif</label>
+                  <label htmlFor="isActiveEdit" className="ml-2.5 text-sm text-on-surface-variant font-semibold cursor-pointer">Status Aktif</label>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Keterangan (Deskripsi)</label>
+                <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Keterangan (Deskripsi)</label>
                 <textarea
                   rows={3}
                   value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white"
+                  className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full h-12 bg-violet-600 hover:bg-violet-550 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 transition-all active:scale-98 flex items-center justify-center mt-6"
+                className="w-full h-12 bg-primary hover:bg-primary/95 text-white font-bold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center mt-6"
               >
                 Perbarui Produk
               </button>
@@ -669,28 +669,28 @@ export default function ProductManagementPage() {
 
       {/* MODAL: Tambah Kategori */}
       {isCatModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0F172A] border border-slate-800 rounded-3xl w-full max-w-sm p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl w-full max-w-sm p-8 shadow-2xl space-y-6">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-4">
               <h2 className="text-xl font-extrabold text-white">Kategori Baru</h2>
-              <button onClick={() => setIsCatModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-850 rounded-lg transition-colors">
+              <button onClick={() => setIsCatModalOpen(false)} className="text-on-surface-variant hover:text-on-surface p-1.5 hover:bg-surface-container-low rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddCategory} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Nama Kategori</label>
+                <label className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Nama Kategori</label>
                 <input
                   type="text" required placeholder="Contoh: Snack"
                   value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-600/50 focus:border-violet-600 transition-all text-white placeholder-slate-600"
+                  className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white placeholder-on-surface-variant/40"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full h-12 bg-violet-600 hover:bg-violet-550 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 transition-all active:scale-98 flex items-center justify-center mt-6"
+                className="w-full h-12 bg-primary hover:bg-primary/95 text-white font-bold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center mt-6"
               >
                 Buat Kategori
               </button>
