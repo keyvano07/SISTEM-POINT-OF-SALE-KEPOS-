@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,40 +10,76 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#faf8ff",
-        "on-background": "#131b2e",
-        surface: "#faf8ff",
-        "surface-dim": "#d2d9f4",
-        "surface-bright": "#faf8ff",
-        "surface-container-lowest": "#ffffff",
-        "surface-container-low": "#f2f3ff",
-        "surface-container": "#eaedff",
-        "surface-container-high": "#e2e7ff",
-        "surface-container-highest": "#dae2fd",
-        "on-surface": "#131b2e",
-        "on-surface-variant": "#434655",
-        "inverse-surface": "#283044",
-        "inverse-on-surface": "#eef0ff",
-        outline: "#737686",
-        "outline-variant": "#c3c6d7",
-        "surface-tint": "#0053db",
-        primary: "#004ac6",
-        "on-primary": "#ffffff",
-        "primary-container": "#2563eb",
-        "on-primary-container": "#eeefff",
-        "inverse-primary": "#b4c5ff",
-        secondary: "#515f74",
-        "on-secondary": "#ffffff",
-        "secondary-container": "#d5e3fc",
-        "on-secondary-container": "#57657a",
-        tertiary: "#525657",
-        "on-tertiary": "#ffffff",
-        "tertiary-container": "#6b6e70",
-        "on-tertiary-container": "#eff1f3",
-        error: "#ba1a1a",
-        "on-error": "#ffffff",
-        "error-container": "#ffdad6",
-        "on-error-container": "#93000a",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(-4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in-right": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.3s ease-out",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
       },
     },
   },

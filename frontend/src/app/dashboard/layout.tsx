@@ -5,8 +5,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/services/api';
 import { 
-  LayoutDashboard, Package, Clipboard, LogOut, ChevronLeft, ChevronRight, ShoppingCart, UserCheck, ShieldCheck, Tag, Users
+  LayoutDashboard, Package, Clipboard, LogOut, ChevronLeft, ChevronRight, 
+  ShoppingCart, UserCheck, ShieldCheck, Tag, Users
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -98,100 +103,130 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const filteredMenu = menuItems.filter(item => item.roles.includes(user.role));
 
   return (
-    <div className="flex min-h-screen bg-background text-on-background overflow-hidden font-sans">
-      {/* Sidebar */}
-      <aside 
-        className={`bg-surface border-r border-outline-variant flex flex-col justify-between transition-all duration-200 ease-in-out z-30 flex-shrink-0 ${
-          isCollapsed ? 'w-20' : 'w-64'
-        }`}
-      >
-        {/* Top Header */}
-        <div>
-          <div className="h-16 flex items-center justify-between px-4 border-b border-outline-variant bg-surface">
-            <div className={`flex items-center gap-3 transition-opacity duration-200 ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>
-              <div className="w-8 h-8 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container shadow-sm">
-                <LayoutDashboard className="w-5 h-5" />
+    <TooltipProvider delayDuration={0}>
+      <div className="flex min-h-screen bg-background overflow-hidden font-sans">
+        {/* Sidebar */}
+        <aside 
+          className={cn(
+            "bg-card border-r flex flex-col justify-between transition-all duration-200 ease-in-out z-30 flex-shrink-0",
+            isCollapsed ? 'w-[68px]' : 'w-64'
+          )}
+        >
+          {/* Top: Logo + Nav */}
+          <div>
+            {/* Logo Area */}
+            <div className="h-16 flex items-center justify-between px-3 border-b">
+              <div className={cn(
+                "flex items-center gap-2.5 transition-opacity duration-200",
+                isCollapsed ? 'opacity-0 hidden' : 'opacity-100'
+              )}>
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shadow-sm">
+                  <LayoutDashboard className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-lg text-primary tracking-tight">KEPOS</span>
               </div>
-              <span className="font-bold text-[20px] text-primary tracking-tight">KEPOS</span>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="h-8 w-8 text-muted-foreground ml-auto"
+              >
+                {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              </Button>
             </div>
-            
-            <button 
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 hover:bg-surface-container rounded-full text-on-surface-variant transition-colors ml-auto"
-            >
-              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-            </button>
+
+            {/* Navigation Links */}
+            <nav className="p-2 space-y-1">
+              {filteredMenu.map((item) => {
+                const isActive = pathname === item.path;
+                const Icon = item.icon;
+
+                const navButton = (
+                  <Button
+                    key={item.path}
+                    variant={isActive ? "secondary" : "ghost"}
+                    onClick={() => router.push(item.path)}
+                    className={cn(
+                      "w-full justify-start h-10 font-medium",
+                      isActive && "bg-primary/10 text-primary font-semibold hover:bg-primary/15",
+                      isCollapsed && "justify-center px-0"
+                    )}
+                  >
+                    <Icon className={cn("w-4 h-4", !isCollapsed && "mr-2.5", isActive && "text-primary")} />
+                    {!isCollapsed && <span className="text-sm truncate">{item.name}</span>}
+                  </Button>
+                );
+
+                if (isCollapsed) {
+                  return (
+                    <Tooltip key={item.path}>
+                      <TooltipTrigger asChild>
+                        {navButton}
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="font-semibold">
+                        {item.name}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return navButton;
+              })}
+            </nav>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="p-3 space-y-1.5">
-            {filteredMenu.map((item) => {
-              const isActive = pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center h-11 rounded-xl transition-colors relative group ${
-                    isActive 
-                      ? 'bg-primary-container text-on-primary-container font-semibold' 
-                      : 'text-on-surface-variant hover:bg-surface-container'
-                  } ${isCollapsed ? 'justify-center px-0' : 'px-3.5 gap-3'}`}
-                >
-                  <Icon className={`w-5 h-5 transition-transform group-hover:scale-105 ${isActive ? 'text-on-primary-container' : 'text-on-surface-variant'}`} />
-                  
-                  {!isCollapsed && <span className="text-[14px]">{item.name}</span>}
-
-                  {/* Tooltip for collapsed state */}
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-inverse-surface text-inverse-on-surface text-xs font-semibold rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-md">
-                      {item.name}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Profile and Logout Card */}
-        <div className="p-4 border-t border-outline-variant bg-surface-container-lowest">
-          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container text-sm flex-shrink-0">
-              {user.name.charAt(0).toUpperCase()}
+          {/* Bottom: Profile & Logout */}
+          <div className="p-3 border-t">
+            <div className={cn("flex items-center gap-2.5 mb-2", isCollapsed && "justify-center")}>
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="text-xs">
+                  {user.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{user.name}</p>
+                  <p className="text-xs text-muted-foreground capitalize truncate">{user.role.replace('_', ' ')}</p>
+                </div>
+              )}
             </div>
-            
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold truncate text-on-surface">{user.name}</p>
-                <p className="text-[12px] text-on-surface-variant capitalize truncate">{user.role.replace('_', ' ')}</p>
-              </div>
+
+            {isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleLogout}
+                    className="w-full h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Keluar</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="w-full justify-start h-9 text-destructive hover:text-destructive hover:bg-destructive/10 font-medium text-sm"
+              >
+                <LogOut className="w-4 h-4 mr-2.5" />
+                <span>Keluar</span>
+              </Button>
             )}
           </div>
+        </aside>
 
-          <button
-            onClick={handleLogout}
-            className={`w-full mt-3 flex items-center h-10 rounded-xl transition-colors text-error hover:bg-error-container hover:text-on-error-container relative group ${
-              isCollapsed ? 'justify-center' : 'px-3 gap-3 text-[14px] font-medium'
-            }`}
-          >
-            <LogOut className="w-4.5 h-4.5" />
-            {!isCollapsed && <span>Keluar</span>}
-            {isCollapsed && (
-              <div className="absolute left-full ml-4 px-3 py-1.5 bg-inverse-surface text-inverse-on-surface text-xs font-semibold rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-md">
-                Keluar
-              </div>
-            )}
-          </button>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 overflow-y-auto bg-background">
+            {children}
+          </main>
         </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-background">
-          {children}
-        </main>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

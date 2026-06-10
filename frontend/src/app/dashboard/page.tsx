@@ -4,6 +4,8 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Package, Clipboard, ShoppingCart, UserCheck, ShieldCheck, Mail, Store } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
  const router = useRouter();
@@ -11,121 +13,137 @@ export default function DashboardPage() {
 
  if (!user) return null;
 
+  const modules = [
+    {
+      title: 'Manajemen Inventori',
+      description: 'Atur produk, kategori, harga jual, dan status stok kritis toko.',
+      icon: Package,
+      path: '/dashboard/manager/products',
+      roles: ['super_admin', 'manager'],
+      featured: false,
+    },
+    {
+      title: 'Gudang & Logistik',
+      description: 'Pencatatan penyesuaian stok, restock barang masuk, dan monitoring log.',
+      icon: Clipboard,
+      path: '/dashboard/stocker',
+      roles: ['super_admin', 'manager', 'supervisor', 'stocker'],
+      featured: false,
+    },
+    {
+      title: 'Point of Sale (Kasir)',
+      description: 'Buka antarmuka kasir utama untuk melakukan checkout transaksi pelanggan.',
+      icon: ShoppingCart,
+      path: '/pos',
+      roles: ['super_admin', 'manager', 'supervisor', 'kasir'],
+      featured: true,
+    },
+    {
+      title: 'Pramuniaga (Draft)',
+      description: 'Buat keranjang belanja sementara untuk pelanggan sebelum diproses kasir.',
+      icon: UserCheck,
+      path: '/pramuniaga',
+      roles: ['super_admin', 'manager', 'supervisor', 'pramuniaga'],
+      featured: false,
+    },
+  ];
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-background text-on-background">
-      {/* Header Section */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-8 shadow-sm">
-        <h2 className="text-[32px] font-bold mb-2 text-on-surface tracking-tight">
-          Selamat Datang, {user.name}!
-        </h2>
-        <p className="text-[16px] text-on-surface-variant font-medium">
-          Anda masuk sebagai <span className="text-primary font-semibold capitalize">{user.role.replace('_', ' ')}</span>. Selamat bekerja!
-        </p>
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Welcome Header */}
+      <Card className="border-border/60 shadow-sm">
+        <CardContent className="p-6 lg:p-8">
+          <h2 className="text-2xl lg:text-3xl font-bold mb-1 tracking-tight">
+            Selamat Datang, {user.name}!
+          </h2>
+          <p className="text-muted-foreground">
+            Anda masuk sebagai{' '}
+            <Badge variant="secondary" className="text-xs font-semibold capitalize ml-1">
+              {user.role.replace('_', ' ')}
+            </Badge>
+          </p>
 
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <div className="p-6 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-primary-container text-on-primary-container rounded-xl">
-              <Store className="w-6 h-6" />
+          {/* Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div className="p-4 bg-muted/50 rounded-lg flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
+                <Store className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Store ID</p>
+                <p className="text-lg font-bold mt-0.5">{user.store_id || 'Pusat'}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[12px] text-on-surface-variant font-semibold uppercase tracking-wider">ID Cabang / Store ID</p>
-              <p className="text-[20px] font-bold text-on-surface mt-0.5">{user.store_id || 'Pusat'}</p>
+
+            <div className="p-4 bg-muted/50 rounded-lg flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Email</p>
+                <p className="text-sm font-semibold mt-0.5 truncate">{user.email}</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-muted/50 rounded-lg flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-lg">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Status</p>
+                <p className="text-sm font-bold mt-0.5 text-emerald-600">Aktif & Terkoneksi</p>
+              </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="p-6 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-primary-container text-on-primary-container rounded-xl">
-              <Mail className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[12px] text-on-surface-variant font-semibold uppercase tracking-wider">Email Pegawai</p>
-              <p className="text-[16px] font-semibold text-on-surface mt-0.5 truncate">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="p-6 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-[#e0f2fe] text-[#0369a1] rounded-xl">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[12px] text-on-surface-variant font-semibold uppercase tracking-wider">Status Otorisasi</p>
-              <p className="text-[16px] font-bold text-on-surface mt-0.5">Aktif & Terkoneksi</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Access Menu Cards */}
+      {/* Quick Access Modules */}
       <div>
-        <h3 className="text-[20px] font-bold text-on-surface mb-6 flex items-center gap-2">
-          <span>Akses Cepat Modul</span>
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Manager / Admin: Inventori */}
-          {['super_admin', 'manager'].includes(user.role) && (
-            <button
-              onClick={() => router.push('/dashboard/manager/products')}
-              className="p-6 bg-surface-container-lowest hover:bg-surface-container border border-outline-variant rounded-3xl text-left transition-colors group flex flex-col justify-between h-48 shadow-sm"
-            >
-              <div className="p-3 bg-secondary-container text-on-secondary-container rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Package className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-on-surface text-[18px] mb-1">Manajemen Inventori</h4>
-                <p className="text-[14px] text-on-surface-variant font-medium">Atur produk, kategori, harga jual, dan status stok kritis toko.</p>
-              </div>
-            </button>
-          )}
-
-          {/* Stocker / Manager / Admin: Gudang */}
-          {['super_admin', 'manager', 'supervisor', 'stocker'].includes(user.role) && (
-            <button
-              onClick={() => router.push('/dashboard/stocker')}
-              className="p-6 bg-surface-container-lowest hover:bg-surface-container border border-outline-variant rounded-3xl text-left transition-colors group flex flex-col justify-between h-48 shadow-sm"
-            >
-              <div className="p-3 bg-secondary-container text-on-secondary-container rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Clipboard className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-on-surface text-[18px] mb-1">Gudang & Logistik</h4>
-                <p className="text-[14px] text-on-surface-variant font-medium">Pencatatan penyesuaian stok, restock barang masuk, dan monitoring log.</p>
-              </div>
-            </button>
-          )}
-
-          {/* Kasir / Manager / Admin: POS */}
-          {['super_admin', 'manager', 'supervisor', 'kasir'].includes(user.role) && (
-            <button
-              onClick={() => router.push('/pos')}
-              className="p-6 bg-primary hover:bg-[#003ea8] border border-transparent rounded-3xl text-left transition-colors group flex flex-col justify-between h-48 shadow-[0px_8px_24px_rgba(0,74,198,0.25)] relative overflow-hidden"
-            >
-              <div className="absolute -top-[10%] -right-[10%] w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-              <div className="p-3 bg-white/20 text-on-primary rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform z-10">
-                <ShoppingCart className="w-6 h-6" />
-              </div>
-              <div className="relative z-10">
-                <h4 className="font-bold text-on-primary text-[18px] mb-1">Point of Sale (Kasir)</h4>
-                <p className="text-[14px] text-primary-fixed-dim font-medium">Buka antarmuka kasir utama untuk melakukan checkout transaksi pelanggan.</p>
-              </div>
-            </button>
-          )}
-
-          {/* Pramuniaga / Admin: Draft Order */}
-          {['super_admin', 'manager', 'supervisor', 'pramuniaga'].includes(user.role) && (
-            <button
-              onClick={() => router.push('/pramuniaga')}
-              className="p-6 bg-surface-container-lowest hover:bg-surface-container border border-outline-variant rounded-3xl text-left transition-colors group flex flex-col justify-between h-48 shadow-sm"
-            >
-              <div className="p-3 bg-secondary-container text-on-secondary-container rounded-xl w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <UserCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-on-surface text-[18px] mb-1">Pramuniaga (Draft)</h4>
-                <p className="text-[14px] text-on-surface-variant font-medium">Buat keranjang belanja sementara untuk pelanggan sebelum diproses kasir.</p>
-              </div>
-            </button>
-          )}
+        <h3 className="text-lg font-bold mb-4">Akses Cepat Modul</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {modules
+            .filter(mod => mod.roles.includes(user.role))
+            .map((mod) => {
+              const Icon = mod.icon;
+              
+              if (mod.featured) {
+                return (
+                  <button
+                    key={mod.path}
+                    onClick={() => router.push(mod.path)}
+                    className="p-6 bg-primary hover:bg-primary/90 rounded-xl text-left transition-all group flex flex-col justify-between h-48 shadow-lg shadow-primary/20 relative overflow-hidden active:scale-[0.98]"
+                  >
+                    <div className="absolute -top-[10%] -right-[10%] w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                    <div className="p-2.5 bg-white/20 text-primary-foreground rounded-lg w-10 h-10 flex items-center justify-center group-hover:scale-105 transition-transform z-10">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="relative z-10">
+                      <h4 className="font-bold text-primary-foreground text-lg mb-1">{mod.title}</h4>
+                      <p className="text-sm text-primary-foreground/70 font-medium">{mod.description}</p>
+                    </div>
+                  </button>
+                );
+              }
+              
+              return (
+                <Card
+                  key={mod.path}
+                  className="hover:border-primary/30 hover:shadow-md transition-all cursor-pointer group h-48 flex flex-col"
+                  onClick={() => router.push(mod.path)}
+                >
+                  <CardContent className="p-6 flex flex-col justify-between h-full">
+                    <div className="p-2.5 bg-muted text-muted-foreground rounded-lg w-10 h-10 flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-base mb-1">{mod.title}</h4>
+                      <p className="text-sm text-muted-foreground">{mod.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
       </div>
     </div>

@@ -4,801 +4,348 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/services/api';
-import { 
-  Clipboard, 
-  Loader2, AlertTriangle, CheckCircle
-} from 'lucide-react';
+import { Clipboard, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 
-interface Product {
-  id: number;
-  sku: string;
-  barcode: string;
-  name: string;
-  stock_quantity: number;
-  buy_price: string;
-}
-
+interface Product { id: number; sku: string; barcode: string; name: string; stock_quantity: number; buy_price: string; }
 interface StockAdjustment {
-  id: number;
-  product_id: number;
-  quantity_change: number;
-  financial_value: string;
-  reason_code: 'damaged' | 'expired' | 'opname';
-  status: 'approved' | 'pending_approval' | 'rejected';
-  notes: string | null;
-  approved_at: string | null;
-  created_at: string;
-  product?: Product;
-  requester?: { name: string };
-  approver?: { name: string } | null;
+  id: number; product_id: number; quantity_change: number; financial_value: string;
+  reason_code: 'damaged' | 'expired' | 'opname'; status: 'approved' | 'pending_approval' | 'rejected';
+  notes: string | null; approved_at: string | null; created_at: string;
+  product?: Product; requester?: { name: string }; approver?: { name: string } | null;
 }
 
 export default function StockerDashboardPage() {
   const router = useRouter();
   const { user, token } = useAuthStore();
-  
   const [products, setProducts] = useState<Product[]>([]);
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Tab State: 'restock' for incoming goods, 'damaged' for stock losses, 'opname' for physical audit discrepancy
-  const [activeTab, setActiveTab] = useState<'restock' | 'damaged' | 'opname'>('restock');
-
-  // Form State: Restock
-  const [restockForm, setRestockForm] = useState({
-    product_id: '',
-    quantity: '',
-    notes: ''
-  });
-
-  // Form State: Damaged/Expired
-  const [damagedForm, setDamagedForm] = useState({
-    product_id: '',
-    quantity: '',
-    reason_code: 'damaged', // 'damaged' | 'expired'
-    notes: ''
-  });
-
-  // Form State: Opname
-  const [opnameForm, setOpnameForm] = useState({
-    product_id: '',
-    quantity: '',
-    type: 'deficit', // 'surplus' | 'deficit'
-    notes: ''
-  });
-
-  // Alert State
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  // Dialog/Modal State for Approve/Reject
+  const [restockForm, setRestockForm] = useState({ product_id: '', quantity: '', notes: '' });
+  const [damagedForm, setDamagedForm] = useState({ product_id: '', quantity: '', reason_code: 'damaged', notes: '' });
+  const [opnameForm, setOpnameForm] = useState({ product_id: '', quantity: '', type: 'deficit', notes: '' });
+
   const [pinModal, setPinModal] = useState<{
-    isOpen: boolean;
-    action: 'approve' | 'reject';
-    adjustmentId: number | null;
-    pin: string;
-    notes: string;
-    error: string | null;
-  }>({
-    isOpen: false,
-    action: 'approve',
-    adjustmentId: null,
-    pin: '',
-    notes: '',
-    error: null,
-  });
+    isOpen: boolean; action: 'approve' | 'reject'; adjustmentId: number | null; pin: string; notes: string; error: string | null;
+  }>({ isOpen: false, action: 'approve', adjustmentId: null, pin: '', notes: '', error: null });
 
   useEffect(() => {
     if (token) {
-      // Stocker, supervisor, manager, and super_admin are authorized
-      if (user && !['super_admin', 'manager', 'supervisor', 'stocker'].includes(user.role)) {
-        router.push('/dashboard');
-        return;
-      }
+      if (user && !['super_admin', 'manager', 'supervisor', 'stocker'].includes(user.role)) { router.push('/dashboard'); return; }
       fetchData();
     }
   }, [token, user, router]);
 
   const fetchData = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const [prodRes, adjRes] = await Promise.all([
-        api.get('/products'),
-        api.get('/stock-adjustments')
-      ]);
-      setProducts(prodRes.data.data);
-      setAdjustments(adjRes.data.data);
-      
-      // Auto-populate default product in forms if available
+      const [prodRes, adjRes] = await Promise.all([api.get('/products'), api.get('/stock-adjustments')]);
+      setProducts(prodRes.data.data); setAdjustments(adjRes.data.data);
       if (prodRes.data.data.length > 0) {
         const firstId = prodRes.data.data[0].id.toString();
         setRestockForm(prev => ({ ...prev, product_id: firstId }));
         setDamagedForm(prev => ({ ...prev, product_id: firstId }));
         setOpnameForm(prev => ({ ...prev, product_id: firstId }));
       }
-    } catch (err) {
-      console.error(err);
-      setError('Gagal memuat data dari server backend.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); setError('Gagal memuat data dari server backend.'); }
+    finally { setLoading(false); }
   };
 
-  const triggerAlert = (type: 'success' | 'error', text: string) => {
-    setAlertMsg({ type, text });
-    setTimeout(() => setAlertMsg(null), 5000);
-  };
-
-  const openPinModal = (action: 'approve' | 'reject', adjustmentId: number) => {
-    setPinModal({
-      isOpen: true,
-      action,
-      adjustmentId,
-      pin: '',
-      notes: '',
-      error: null
-    });
-  };
-
-  const closePinModal = () => {
-    setPinModal(prev => ({ ...prev, isOpen: false }));
-  };
+  const triggerAlert = (type: 'success' | 'error', text: string) => { setAlertMsg({ type, text }); setTimeout(() => setAlertMsg(null), 5000); };
+  const getSelectedProductInfo = (idString: string) => { const prod = products.find(p => p.id.toString() === idString); return prod ? `Stok saat ini: ${prod.stock_quantity} unit` : ''; };
+  const openPinModal = (action: 'approve' | 'reject', adjustmentId: number) => { setPinModal({ isOpen: true, action, adjustmentId, pin: '', notes: '', error: null }); };
+  const closePinModal = () => { setPinModal(prev => ({ ...prev, isOpen: false })); };
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { action, adjustmentId, pin, notes } = pinModal;
     if (!adjustmentId || !pin) return;
-
-    if (pin.length !== 6 || isNaN(Number(pin))) {
-      setPinModal(prev => ({ ...prev, error: 'PIN harus berupa 6 digit angka.' }));
-      return;
-    }
-
-    setSubmitting(true);
-    setPinModal(prev => ({ ...prev, error: null }));
+    if (pin.length !== 6 || isNaN(Number(pin))) { setPinModal(prev => ({ ...prev, error: 'PIN harus berupa 6 digit angka.' })); return; }
+    setSubmitting(true); setPinModal(prev => ({ ...prev, error: null }));
     try {
-      const endpoint = `/stock-adjustments/${adjustmentId}/${action}`;
-      const payload: { pin: string; notes?: string } = { pin };
-      if (action === 'reject') {
-        payload.notes = notes;
-      }
-      
-      const response = await api.post(endpoint, payload);
-      if (response.data.success) {
-        triggerAlert('success', response.data.message);
-        closePinModal();
-        fetchData();
-      }
-    } catch (err) {
-      console.error(err);
+      const payload: { pin: string; notes?: string } = { pin }; if (action === 'reject') payload.notes = notes;
+      const response = await api.post(`/stock-adjustments/${adjustmentId}/${action}`, payload);
+      if (response.data.success) { triggerAlert('success', response.data.message); closePinModal(); fetchData(); }
+    } catch (err) { console.error(err);
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Gagal memproses otorisasi PIN.';
       setPinModal(prev => ({ ...prev, error: msg }));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDamagedSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!damagedForm.product_id || !damagedForm.quantity) return;
-
-    setSubmitting(true);
-    try {
-      const qty = Math.abs(parseInt(damagedForm.quantity)) * -1;
-      const response = await api.post('/stock-adjustments', {
-        product_id: parseInt(damagedForm.product_id),
-        quantity_change: qty,
-        reason_code: damagedForm.reason_code,
-        notes: damagedForm.notes
-      });
-      if (response.data.success) {
-        triggerAlert('success', response.data.message);
-        setDamagedForm(prev => ({
-          ...prev,
-          quantity: '',
-          notes: ''
-        }));
-        fetchData();
-      }
-    } catch (err) {
-      console.error(err);
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Gagal menyimpan pencatatan barang rusak/expired.';
-      triggerAlert('error', msg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleOpnameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!opnameForm.product_id || !opnameForm.quantity) return;
-
-    setSubmitting(true);
-    try {
-      const baseQty = Math.abs(parseInt(opnameForm.quantity));
-      const qty = opnameForm.type === 'deficit' ? -baseQty : baseQty;
-      
-      const response = await api.post('/stock-adjustments', {
-        product_id: parseInt(opnameForm.product_id),
-        quantity_change: qty,
-        reason_code: 'opname',
-        notes: opnameForm.notes
-      });
-      if (response.data.success) {
-        triggerAlert('success', response.data.message);
-        setOpnameForm(prev => ({
-          ...prev,
-          quantity: '',
-          notes: ''
-        }));
-        fetchData();
-      }
-    } catch (err) {
-      console.error(err);
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Gagal menyimpan penyesuaian stok opname.';
-      triggerAlert('error', msg);
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   const handleRestockSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!restockForm.product_id || !restockForm.quantity) return;
-
-    setSubmitting(true);
+    e.preventDefault(); if (!restockForm.product_id || !restockForm.quantity) return; setSubmitting(true);
     try {
-      const response = await api.post('/stock-adjustments/restock', {
-        product_id: parseInt(restockForm.product_id),
-        quantity: parseInt(restockForm.quantity),
-        notes: restockForm.notes
-      });
-      if (response.data.success) {
-        triggerAlert('success', response.data.message);
-        setRestockForm(prev => ({
-          ...prev,
-          quantity: '',
-          notes: ''
-        }));
-        fetchData();
-      }
-    } catch (err) {
-      console.error(err);
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Gagal menyimpan barang masuk.';
-      triggerAlert('error', msg);
-    } finally {
-      setSubmitting(false);
-    }
+      const response = await api.post('/stock-adjustments/restock', { product_id: parseInt(restockForm.product_id), quantity: parseInt(restockForm.quantity), notes: restockForm.notes });
+      if (response.data.success) { triggerAlert('success', response.data.message); setRestockForm(prev => ({ ...prev, quantity: '', notes: '' })); fetchData(); }
+    } catch (err) { console.error(err); triggerAlert('error', ((err as { response?: { data?: { message?: string } } })).response?.data?.message || 'Gagal menyimpan barang masuk.'); }
+    finally { setSubmitting(false); }
   };
 
-  // Find selected product info for helper text (e.g. current stock)
-  const getSelectedProductInfo = (idString: string) => {
-    const prod = products.find(p => p.id.toString() === idString);
-    return prod ? `Stok saat ini: ${prod.stock_quantity} unit` : '';
+  const handleDamagedSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!damagedForm.product_id || !damagedForm.quantity) return; setSubmitting(true);
+    try {
+      const qty = Math.abs(parseInt(damagedForm.quantity)) * -1;
+      const response = await api.post('/stock-adjustments', { product_id: parseInt(damagedForm.product_id), quantity_change: qty, reason_code: damagedForm.reason_code, notes: damagedForm.notes });
+      if (response.data.success) { triggerAlert('success', response.data.message); setDamagedForm(prev => ({ ...prev, quantity: '', notes: '' })); fetchData(); }
+    } catch (err) { console.error(err); triggerAlert('error', ((err as { response?: { data?: { message?: string } } })).response?.data?.message || 'Gagal menyimpan pencatatan barang rusak/expired.'); }
+    finally { setSubmitting(false); }
   };
+
+  const handleOpnameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!opnameForm.product_id || !opnameForm.quantity) return; setSubmitting(true);
+    try {
+      const baseQty = Math.abs(parseInt(opnameForm.quantity));
+      const qty = opnameForm.type === 'deficit' ? -baseQty : baseQty;
+      const response = await api.post('/stock-adjustments', { product_id: parseInt(opnameForm.product_id), quantity_change: qty, reason_code: 'opname', notes: opnameForm.notes });
+      if (response.data.success) { triggerAlert('success', response.data.message); setOpnameForm(prev => ({ ...prev, quantity: '', notes: '' })); fetchData(); }
+    } catch (err) { console.error(err); triggerAlert('error', ((err as { response?: { data?: { message?: string } } })).response?.data?.message || 'Gagal menyimpan penyesuaian stok opname.'); }
+    finally { setSubmitting(false); }
+  };
+
+  const selectClass = "flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 bg-background text-on-background font-sans">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant p-6 rounded-2xl shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-primary/10 text-primary rounded-xl">
-            <Clipboard className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-on-surface">Gudang & Logistik</h1>
-            <p className="text-xs text-on-surface-variant">Pencatatan penyesuaian stok, restock barang masuk, dan monitoring log</p>
-          </div>
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 bg-primary/10 text-primary rounded-lg"><Clipboard className="w-5 h-5" /></div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Gudang & Logistik</h1>
+          <p className="text-sm text-muted-foreground">Pencatatan penyesuaian stok, restock barang masuk, dan monitoring log</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: Form Submissions */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* Toast Notification inside column */}
-          {alertMsg && (
-            <div className={`flex items-center gap-3 p-4 rounded-2xl border ${
-              alertMsg.type === 'success' 
-                ? 'bg-success/10 border-success/20 text-emerald-600' 
-                : 'bg-error/10 border-error/20 text-error'
-            }`}>
-              {alertMsg.type === 'success' ? <CheckCircle className="w-5 h-5 flex-shrink-0" /> : <AlertTriangle className="w-5 h-5 flex-shrink-0" />}
-              <span className="text-sm font-medium">{alertMsg.text}</span>
-            </div>
-          )}
+      {alertMsg && (
+        <Alert variant={alertMsg.type === 'success' ? 'success' : 'destructive'} className="animate-fade-in">
+          {alertMsg.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+          <AlertDescription className="font-medium">{alertMsg.text}</AlertDescription>
+        </Alert>
+      )}
 
-          {/* Form Card */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-xl space-y-6">
-            
-            {/* Tab Selector */}
-            <div className="flex flex-col sm:flex-row bg-surface-container-low p-1.5 rounded-xl border border-outline-variant gap-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab('restock')}
-                className={`flex-1 py-2 px-3 text-center text-xs font-bold rounded-lg transition-all ${
-                  activeTab === 'restock' 
-                    ? 'bg-primary text-white shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Barang Masuk
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('damaged')}
-                className={`flex-1 py-2 px-3 text-center text-xs font-bold rounded-lg transition-all ${
-                  activeTab === 'damaged' 
-                    ? 'bg-primary text-white shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Rusak / Expired
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('opname')}
-                className={`flex-1 py-2 px-3 text-center text-xs font-bold rounded-lg transition-all ${
-                  activeTab === 'opname' 
-                    ? 'bg-primary text-white shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Stok Opname
-              </button>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Column */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardContent className="p-5">
+              <Tabs defaultValue="restock" className="space-y-4">
+                <TabsList className="w-full grid grid-cols-3">
+                  <TabsTrigger value="restock" className="text-xs">Barang Masuk</TabsTrigger>
+                  <TabsTrigger value="damaged" className="text-xs">Rusak/Expired</TabsTrigger>
+                  <TabsTrigger value="opname" className="text-xs">Stok Opname</TabsTrigger>
+                </TabsList>
 
-            {/* TAB CONTENT: RESTOCK */}
-            {activeTab === 'restock' && (
-              <form onSubmit={handleRestockSubmit} className="space-y-4">
-                <h3 className="text-base font-bold text-primary">Form Input Barang Masuk</h3>
-                
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Pilih Produk</label>
-                  {loading ? (
-                    <div className="text-xs text-gray-500">Memuat produk...</div>
-                  ) : (
-                    <>
-                      <select
-                        value={restockForm.product_id}
-                        onChange={(e) => setRestockForm({ ...restockForm, product_id: e.target.value })}
-                        className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id} className="bg-[#111622]">
-                            {p.name} ({p.sku})
-                          </option>
-                        ))}
+                <TabsContent value="restock">
+                  <form onSubmit={handleRestockSubmit} className="space-y-4">
+                    <h3 className="text-sm font-bold text-primary">Form Input Barang Masuk</h3>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Pilih Produk</Label>
+                      {loading ? <p className="text-xs text-muted-foreground">Memuat...</p> : (
+                        <>
+                          <select value={restockForm.product_id} onChange={(e) => setRestockForm({...restockForm, product_id: e.target.value})} className={selectClass}>
+                            {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                          </select>
+                          <span className="text-xs text-emerald-600 font-medium">{getSelectedProductInfo(restockForm.product_id)}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Kuantitas Masuk</Label>
+                      <Input type="number" required min="1" placeholder="50" value={restockForm.quantity} onChange={(e) => setRestockForm({...restockForm, quantity: e.target.value})} />
+                      <p className="text-[10px] text-muted-foreground">Stok produk akan langsung bertambah.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Catatan</Label>
+                      <Textarea placeholder="Nomor PO, pengirim..." rows={3} value={restockForm.notes} onChange={(e) => setRestockForm({...restockForm, notes: e.target.value})} />
+                    </div>
+                    <Button type="submit" disabled={submitting} className="w-full gap-2">
+                      {submitting && <Loader2 className="w-4 h-4 animate-spin" />} Simpan Barang Masuk
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="damaged">
+                  <form onSubmit={handleDamagedSubmit} className="space-y-4">
+                    <h3 className="text-sm font-bold text-destructive">Pencatatan Barang Rusak / Kadaluwarsa</h3>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Pilih Produk</Label>
+                      <select value={damagedForm.product_id} onChange={(e) => setDamagedForm({...damagedForm, product_id: e.target.value})} className={selectClass}>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                       </select>
-                      <span className="text-xs text-emerald-600 block mt-1 font-medium">
-                        {getSelectedProductInfo(restockForm.product_id)}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Kuantitas Masuk (Tambahan)</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="Contoh: 50"
-                    value={restockForm.quantity}
-                    onChange={(e) => setRestockForm({ ...restockForm, quantity: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40"
-                  />
-                  <span className="text-[10px] text-on-surface-variant block mt-1">
-                    Hanya masukkan angka positif. Stok produk akan langsung bertambah.
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Catatan Penerimaan</label>
-                  <textarea
-                    placeholder="Nomor PO, pengirim, atau detail restock..."
-                    rows={3}
-                    value={restockForm.notes}
-                    onChange={(e) => setRestockForm({ ...restockForm, notes: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3 bg-primary hover:bg-primary/95 text-white font-bold rounded-xl shadow-md shadow-primary/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Simpan Barang Masuk</span>
-                </button>
-              </form>
-            )}
-
-            {/* TAB CONTENT: DAMAGED / EXPIRED */}
-            {activeTab === 'damaged' && (
-              <form onSubmit={handleDamagedSubmit} className="space-y-4">
-                <h3 className="text-base font-bold text-error">Pencatatan Barang Rusak / Kadaluwarsa</h3>
-                
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Pilih Produk</label>
-                  {loading ? (
-                    <div className="text-xs text-gray-500">Memuat produk...</div>
-                  ) : (
-                    <>
-                      <select
-                        value={damagedForm.product_id}
-                        onChange={(e) => setDamagedForm({ ...damagedForm, product_id: e.target.value })}
-                        className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id} className="bg-[#111622]">
-                            {p.name} ({p.sku})
-                          </option>
-                        ))}
+                      <span className="text-xs text-emerald-600 font-medium">{getSelectedProductInfo(damagedForm.product_id)}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Kuantitas</Label>
+                      <Input type="number" required min="1" placeholder="5" value={damagedForm.quantity} onChange={(e) => setDamagedForm({...damagedForm, quantity: e.target.value})} />
+                      <p className="text-[10px] text-destructive font-medium">⚠️ Akan diproses sebagai pengurangan stok (-{damagedForm.quantity || '0'}).</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Alasan</Label>
+                      <select value={damagedForm.reason_code} onChange={(e) => setDamagedForm({...damagedForm, reason_code: e.target.value})} className={selectClass}>
+                        <option value="damaged">Barang Rusak</option><option value="expired">Kadaluwarsa</option>
                       </select>
-                      <span className="text-xs text-emerald-600 block mt-1 font-medium">
-                        {getSelectedProductInfo(damagedForm.product_id)}
-                      </span>
-                    </>
-                  )}
-                </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Catatan</Label>
+                      <Textarea placeholder="Detail kronologi..." rows={3} value={damagedForm.notes} onChange={(e) => setDamagedForm({...damagedForm, notes: e.target.value})} />
+                    </div>
+                    <Button type="submit" disabled={submitting} variant="destructive" className="w-full gap-2">
+                      {submitting && <Loader2 className="w-4 h-4 animate-spin" />} Catat Barang Rusak/Expired
+                    </Button>
+                  </form>
+                </TabsContent>
 
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Kuantitas Rusak / Susut</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="Contoh: 5 (stok akan berkurang)"
-                    value={damagedForm.quantity}
-                    onChange={(e) => setDamagedForm({ ...damagedForm, quantity: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40"
-                  />
-                  <span className="text-[10px] text-error font-medium block mt-1">
-                    ⚠️ Masukkan jumlah sebagai angka positif. Sistem akan otomatis memprosesnya sebagai pengurangan stok (-{damagedForm.quantity || '0'}).
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Alasan Kategori</label>
-                  <select
-                    value={damagedForm.reason_code}
-                    onChange={(e) => setDamagedForm({ ...damagedForm, reason_code: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="damaged" className="bg-[#111622]">Barang Rusak (Damaged)</option>
-                    <option value="expired" className="bg-[#111622]">Kadaluwarsa (Expired)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Catatan / Detail Kronologi</label>
-                  <textarea
-                    placeholder="Contoh: Bocor di rak, kardus penyok saat dipindahkan..."
-                    rows={3}
-                    value={damagedForm.notes}
-                    onChange={(e) => setDamagedForm({ ...damagedForm, notes: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Catat Barang Rusak/Expired</span>
-                </button>
-              </form>
-            )}
-
-            {/* TAB CONTENT: STOCK OPNAME */}
-            {activeTab === 'opname' && (
-              <form onSubmit={handleOpnameSubmit} className="space-y-4">
-                <h3 className="text-base font-bold text-amber-400">Penyesuaian Stok Opname</h3>
-                
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Pilih Produk</label>
-                  {loading ? (
-                    <div className="text-xs text-gray-500">Memuat produk...</div>
-                  ) : (
-                    <>
-                      <select
-                        value={opnameForm.product_id}
-                        onChange={(e) => setOpnameForm({ ...opnameForm, product_id: e.target.value })}
-                        className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id} className="bg-[#111622]">
-                            {p.name} ({p.sku})
-                          </option>
-                        ))}
+                <TabsContent value="opname">
+                  <form onSubmit={handleOpnameSubmit} className="space-y-4">
+                    <h3 className="text-sm font-bold text-amber-600">Penyesuaian Stok Opname</h3>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Pilih Produk</Label>
+                      <select value={opnameForm.product_id} onChange={(e) => setOpnameForm({...opnameForm, product_id: e.target.value})} className={selectClass}>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                       </select>
-                      <span className="text-xs text-emerald-600 block mt-1 font-medium">
-                        {getSelectedProductInfo(opnameForm.product_id)}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase block">Tipe Selisih Opname</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-sm font-semibold cursor-pointer transition-all ${
-                      opnameForm.type === 'deficit'
-                        ? 'bg-error/10 border-error/40 text-error'
-                        : 'bg-surface-container-low border-outline-variant text-on-surface-variant hover:text-on-surface'
-                    }`}>
-                      <input
-                        type="radio"
-                        name="opname_type"
-                        value="deficit"
-                        checked={opnameForm.type === 'deficit'}
-                        onChange={() => setOpnameForm({ ...opnameForm, type: 'deficit' })}
-                        className="sr-only"
-                      />
-                      <span>Kurang (Defisit)</span>
-                    </label>
-                    <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-sm font-semibold cursor-pointer transition-all ${
-                      opnameForm.type === 'surplus'
-                        ? 'bg-success/10 border-success/40 text-emerald-600'
-                        : 'bg-surface-container-low border-outline-variant text-on-surface-variant hover:text-on-surface'
-                    }`}>
-                      <input
-                        type="radio"
-                        name="opname_type"
-                        value="surplus"
-                        checked={opnameForm.type === 'surplus'}
-                        onChange={() => setOpnameForm({ ...opnameForm, type: 'surplus' })}
-                        className="sr-only"
-                      />
-                      <span>Lebih (Surplus)</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Jumlah Selisih Kuantitas</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="Contoh: 3"
-                    value={opnameForm.quantity}
-                    onChange={(e) => setOpnameForm({ ...opnameForm, quantity: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40"
-                  />
-                  <span className="text-[10px] block mt-1 font-medium text-on-surface-variant">
-                    {opnameForm.type === 'deficit' ? (
-                      <span className="text-error">Stok akan berkurang sebanyak -{opnameForm.quantity || '0'}.</span>
-                    ) : (
-                      <span className="text-emerald-600">Stok akan bertambah sebanyak +{opnameForm.quantity || '0'}.</span>
-                    )}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase">Catatan Opname</label>
-                  <textarea
-                    placeholder="Masukkan detail selisih opname fisik..."
-                    rows={3}
-                    value={opnameForm.notes}
-                    onChange={(e) => setOpnameForm({ ...opnameForm, notes: e.target.value })}
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Simpan Penyesuaian Opname</span>
-                </button>
-              </form>
-            )}
-
-          </div>
-
+                      <span className="text-xs text-emerald-600 font-medium">{getSelectedProductInfo(opnameForm.product_id)}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Tipe Selisih</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button type="button" onClick={() => setOpnameForm({...opnameForm, type: 'deficit'})}
+                          className={`p-3 rounded-lg border text-sm font-semibold transition-all ${opnameForm.type === 'deficit' ? 'bg-destructive/10 border-destructive/40 text-destructive' : 'border-input hover:border-border text-muted-foreground'}`}>
+                          Kurang (Defisit)
+                        </button>
+                        <button type="button" onClick={() => setOpnameForm({...opnameForm, type: 'surplus'})}
+                          className={`p-3 rounded-lg border text-sm font-semibold transition-all ${opnameForm.type === 'surplus' ? 'bg-emerald-50 border-emerald-400 text-emerald-600' : 'border-input hover:border-border text-muted-foreground'}`}>
+                          Lebih (Surplus)
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Jumlah Selisih</Label>
+                      <Input type="number" required min="1" placeholder="3" value={opnameForm.quantity} onChange={(e) => setOpnameForm({...opnameForm, quantity: e.target.value})} />
+                      <p className="text-[10px] font-medium">{opnameForm.type === 'deficit' ? <span className="text-destructive">Stok berkurang -{opnameForm.quantity || '0'}</span> : <span className="text-emerald-600">Stok bertambah +{opnameForm.quantity || '0'}</span>}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Catatan</Label>
+                      <Textarea placeholder="Detail selisih opname..." rows={3} value={opnameForm.notes} onChange={(e) => setOpnameForm({...opnameForm, notes: e.target.value})} />
+                    </div>
+                    <Button type="submit" disabled={submitting} variant="warning" className="w-full gap-2">
+                      {submitting && <Loader2 className="w-4 h-4 animate-spin" />} Simpan Penyesuaian Opname
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Right Column: History List */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-xl space-y-6">
-            <div className="flex justify-between items-center border-b border-outline-variant pb-4">
-              <div className="flex items-center gap-3">
-                <Clipboard className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold">Riwayat Log Gudang</h2>
+        {/* History Column */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="font-bold flex items-center gap-2"><Clipboard className="w-4 h-4 text-primary" /> Riwayat Log Gudang</h2>
+                <Button variant="ghost" size="sm" onClick={fetchData} className="text-xs text-primary">Refresh</Button>
               </div>
-              <button 
-                onClick={fetchData} 
-                className="text-xs font-semibold text-primary hover:text-violet-300 transition-all"
-              >
-                Refresh Data
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-3">
-                <Loader2 className="w-10 h-10 animate-spin text-violet-500" />
-                <span>Memuat histori gudang...</span>
-              </div>
-            ) : error ? (
-              <div className="text-center py-20 text-error font-semibold">{error}</div>
-            ) : adjustments.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">
-                Belum ada transaksi log penyesuaian stok yang terdaftar.
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-outline-variant">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-surface-container-lowest text-on-surface-variant font-semibold border-b border-outline-variant">
-                      <th className="p-4">Tanggal</th>
-                      <th className="p-4">Produk</th>
-                      <th className="p-4 text-center">Selisih</th>
-                      <th className="p-4 text-right">Nilai Finansial</th>
-                      <th className="p-4 text-center">Status</th>
-                      <th className="p-4">Keterangan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
+              {loading ? (
+                <div className="flex flex-col items-center py-16 gap-3"><Loader2 className="w-8 h-8 animate-spin text-primary" /><span className="text-sm text-muted-foreground">Memuat histori...</span></div>
+              ) : error ? (
+                <div className="text-center py-16 text-destructive font-semibold">{error}</div>
+              ) : adjustments.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">Belum ada transaksi log.</div>
+              ) : (
+                <Table>
+                  <TableHeader><TableRow className="bg-muted/50">
+                    <TableHead>Tanggal</TableHead><TableHead>Produk</TableHead><TableHead className="text-center">Selisih</TableHead>
+                    <TableHead className="text-right">Nilai</TableHead><TableHead className="text-center">Status</TableHead><TableHead>Keterangan</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
                     {adjustments.map(adj => (
-                      <tr key={adj.id} className="hover:bg-surface-container-lowest transition-all">
-                        <td className="p-4 text-xs text-on-surface-variant">
-                          {new Date(adj.created_at).toLocaleString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="p-4">
-                          <div className="font-semibold">{adj.product?.name || 'Produk Terhapus'}</div>
-                          <div className="text-[10px] text-gray-500 font-mono">{adj.product?.sku}</div>
-                        </td>
-                        <td className={`p-4 text-center font-bold ${
-                          adj.quantity_change > 0 ? 'text-emerald-600' : 'text-error'
-                        }`}>
+                      <TableRow key={adj.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(adj.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-sm">{adj.product?.name || 'Produk Terhapus'}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono">{adj.product?.sku}</div>
+                        </TableCell>
+                        <TableCell className={`text-center font-bold font-mono ${adj.quantity_change > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                           {adj.quantity_change > 0 ? `+${adj.quantity_change}` : adj.quantity_change}
-                        </td>
-                        <td className="p-4 text-right font-mono text-xs">
-                          Rp {parseFloat(adj.financial_value).toLocaleString('id-ID')}
-                        </td>
-                        <td className="p-4 text-center">
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">Rp {parseFloat(adj.financial_value).toLocaleString('id-ID')}</TableCell>
+                        <TableCell className="text-center">
                           {adj.status === 'pending_approval' && user && ['super_admin', 'manager', 'supervisor'].includes(user.role) ? (
                             <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={() => openPinModal('approve', adj.id)}
-                                className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase border bg-success/20 border-success/40 text-emerald-600 hover:bg-success/30 transition-all active:scale-95"
-                                title="Setujui Pengajuan"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => openPinModal('reject', adj.id)}
-                                className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase border bg-error/20 border-error/40 text-error hover:bg-error/30 transition-all active:scale-95"
-                                title="Tolak Pengajuan"
-                              >
-                                Reject
-                              </button>
+                              <Button size="sm" variant="success" onClick={() => openPinModal('approve', adj.id)} className="h-7 text-xs px-2">Approve</Button>
+                              <Button size="sm" variant="destructive" onClick={() => openPinModal('reject', adj.id)} className="h-7 text-xs px-2">Reject</Button>
                             </div>
                           ) : (
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border ${
-                              adj.status === 'approved'
-                                ? 'bg-success/10 border-success/20 text-emerald-600'
-                                : adj.status === 'pending_approval'
-                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                                : 'bg-error/10 border-error/20 text-error'
-                            }`}>
+                            <Badge variant={adj.status === 'approved' ? 'success' : adj.status === 'pending_approval' ? 'warning' : 'destructive'} className="text-[10px] uppercase">
                               {adj.status === 'approved' ? 'Approved' : adj.status === 'pending_approval' ? 'Pending' : 'Rejected'}
-                            </span>
+                            </Badge>
                           )}
-                        </td>
-                        <td className="p-4 text-xs text-on-surface-variant max-w-[150px] truncate">
-                          <div className="capitalize font-semibold text-on-surface-variant">
-                            {adj.reason_code === 'damaged' ? 'Rusak' : adj.reason_code === 'expired' ? 'Kedaluwarsa' : 'Opname'}
-                          </div>
-                          {adj.notes && <div className="text-[11px] text-gray-500 mt-0.5">{adj.notes}</div>}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[150px]">
+                          <div className="font-semibold text-muted-foreground capitalize">{adj.reason_code === 'damaged' ? 'Rusak' : adj.reason_code === 'expired' ? 'Kedaluwarsa' : 'Opname'}</div>
+                          {adj.notes && <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{adj.notes}</div>}
                           {adj.approver && <div className="text-[9px] text-primary mt-1">Oleh: {adj.approver.name}</div>}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-          </div>
-
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </div>
-
       </div>
 
-      {/* PIN Verification Modal */}
-      {pinModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="relative w-full max-w-md bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-2xl space-y-6">
+      {/* PIN Modal */}
+      <Dialog open={pinModal.isOpen} onOpenChange={(open) => !open && closePinModal()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className={`w-5 h-5 ${pinModal.action === 'approve' ? 'text-emerald-600' : 'text-destructive'}`} />
+              Otorisasi PIN — {pinModal.action === 'approve' ? 'Persetujuan' : 'Penolakan'}
+            </DialogTitle>
+            <DialogDescription>Tindakan ini memerlukan PIN dari Supervisor atau Manajer.</DialogDescription>
+          </DialogHeader>
+          {pinModal.error && (
+            <Alert variant="destructive"><AlertDescription className="font-medium">{pinModal.error}</AlertDescription></Alert>
+          )}
+          <form onSubmit={handlePinSubmit} className="space-y-4">
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <AlertTriangle className={`w-5 h-5 ${pinModal.action === 'approve' ? 'text-emerald-600' : 'text-error'}`} />
-                <span>Otorisasi PIN - {pinModal.action === 'approve' ? 'Persetujuan' : 'Penolakan'}</span>
-              </h3>
-              <p className="text-xs text-on-surface-variant">
-                Tindakan ini memerlukan PIN Otorisasi dari Supervisor atau Manajer.
-              </p>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">PIN Otorisasi (6 Digit)</Label>
+              <Input type="password" required maxLength={6} value={pinModal.pin}
+                onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setPinModal({...pinModal, pin: val}); }}
+                placeholder="••••••" className="text-center text-lg font-bold tracking-widest" />
             </div>
-
-            {pinModal.error && (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-error/10 border border-error/20 text-error text-xs font-semibold">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <span>{pinModal.error}</span>
+            {pinModal.action === 'reject' && (
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Alasan Penolakan</Label>
+                <Textarea required rows={3} value={pinModal.notes} onChange={(e) => setPinModal({...pinModal, notes: e.target.value})} placeholder="Alasan ditolak..." />
               </div>
             )}
-
-            <form onSubmit={handlePinSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs text-on-surface-variant font-semibold uppercase block">PIN Otorisasi (6 Digit)</label>
-                <input
-                  type="password"
-                  required
-                  maxLength={6}
-                  value={pinModal.pin}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setPinModal({ ...pinModal, pin: val });
-                  }}
-                  placeholder="******"
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-3 text-center text-lg font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent placeholder-on-surface-variant/40 text-white"
-                />
-              </div>
-
-              {pinModal.action === 'reject' && (
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-semibold uppercase block">Alasan Penolakan</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={pinModal.notes}
-                    onChange={(e) => setPinModal({ ...pinModal, notes: e.target.value })}
-                    placeholder="Masukkan alasan mengapa penyesuaian stok ini ditolak..."
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder-on-surface-variant/40 text-white"
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closePinModal}
-                  className="px-4 py-2.5 rounded-xl border border-outline-variant hover:bg-surface-container-lowest text-on-surface-variant text-xs font-bold transition-all"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                    pinModal.action === 'approve'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
-                      : 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500'
-                  } shadow-lg active:scale-98`}
-                >
-                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{pinModal.action === 'approve' ? 'Setujui' : 'Tolak'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={closePinModal}>Batal</Button>
+              <Button type="submit" disabled={submitting} variant={pinModal.action === 'approve' ? 'success' : 'destructive'} className="gap-1.5">
+                {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {pinModal.action === 'approve' ? 'Setujui' : 'Tolak'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,7 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/services/api';
-import { Lock, Mail, Loader2, AlertCircle, Store } from 'lucide-react';
+import { Lock, Mail, Loader2, Store } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -65,113 +70,114 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faf8ff] font-sans text-[#131b2e]">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/30 to-background font-sans relative overflow-hidden">
       
-      {/* Background Decor (Subtle Ambient) */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] rounded-full bg-[#e2e7ff] blur-[100px] opacity-60" />
-        <div className="absolute top-[60%] -right-[10%] w-[500px] h-[500px] rounded-full bg-[#d5e3fc] blur-[120px] opacity-50" />
+      {/* Ambient Background Orbs */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
+        <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] rounded-full bg-primary/5 blur-[100px]" />
+        <div className="absolute top-[60%] -right-[10%] w-[500px] h-[500px] rounded-full bg-accent blur-[120px] opacity-50" />
       </div>
 
       <div className="w-full max-w-[440px] z-10 px-4">
         
-        {/* Luminous Brand Header */}
-        <div className="text-center mb-10 space-y-4">
-          <div className="mx-auto w-16 h-16 bg-[#2563eb] rounded-2xl flex items-center justify-center text-[#ffffff] shadow-[0px_8px_24px_rgba(37,99,235,0.25)]">
-            <Store className="w-8 h-8" strokeWidth={2} />
+        {/* Brand Header */}
+        <div className="text-center mb-8 space-y-3">
+          <div className="mx-auto w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/25">
+            <Store className="w-7 h-7" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-[32px] font-bold tracking-tight text-[#131b2e] leading-tight">
-              Luminous POS
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              KEPOS
             </h1>
-            <p className="text-[16px] text-[#434655] mt-1 font-medium">
-              Sistem Operasional Ritel
+            <p className="text-sm text-muted-foreground mt-1 font-medium">
+              Sistem Point of Sale
             </p>
           </div>
         </div>
 
-        {/* Level 3 Elevated Card */}
-        <div className="bg-[#ffffff] rounded-[24px] p-8 md:p-10 shadow-[0px_20px_50px_rgba(15,23,42,0.08)] border border-[#e2e7ff]">
+        {/* Login Card */}
+        <Card className="shadow-xl border-border/60 backdrop-blur-sm">
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl">Selamat Datang</CardTitle>
+            <CardDescription>Masuk menggunakan kredensial Anda.</CardDescription>
+          </CardHeader>
           
-          <div className="mb-8">
-            <h2 className="text-[20px] font-semibold text-[#131b2e]">Selamat Datang</h2>
-            <p className="text-[14px] text-[#737686] mt-1">Masuk menggunakan kredensial Anda.</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {error && (
-              <div className="flex items-center gap-3 p-4 rounded-[12px] bg-[#ffdad6] text-[#93000a] text-sm animate-fadeIn">
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                <span className="font-medium">{error}</span>
-              </div>
-            )}
-
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label className="text-[12px] font-semibold text-[#434655] uppercase tracking-wider block">
-                Email Pegawai
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="w-5 h-5 text-[#737686]" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  placeholder="name@store.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                  className="block w-full pl-11 pr-4 py-3.5 bg-[#f2f3ff] border border-transparent rounded-[12px] text-[#131b2e] placeholder-[#737686] focus:outline-none focus:bg-[#ffffff] focus:ring-2 focus:ring-[#004ac6] focus:border-[#004ac6] transition-all disabled:opacity-50 text-[14px] shadow-sm"
-                />
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-[12px] font-semibold text-[#434655] uppercase tracking-wider block">
-                  Kata Sandi
-                </label>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="w-5 h-5 text-[#737686]" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  className="block w-full pl-11 pr-4 py-3.5 bg-[#f2f3ff] border border-transparent rounded-[12px] text-[#131b2e] placeholder-[#737686] focus:outline-none focus:bg-[#ffffff] focus:ring-2 focus:ring-[#004ac6] focus:border-[#004ac6] transition-all disabled:opacity-50 text-[14px] shadow-sm"
-                />
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="relative w-full py-3.5 px-6 rounded-[12px] text-[#ffffff] font-semibold bg-[#004ac6] hover:bg-[#003ea8] active:scale-[0.98] transition-all shadow-[0px_4px_12px_rgba(0,74,198,0.2)] flex items-center justify-center gap-2 disabled:opacity-60 disabled:pointer-events-none text-[16px]"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Mengautentikasi...</span>
-                </>
-              ) : (
-                <span>Masuk Sistem</span>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              
+              {error && (
+                <Alert variant="destructive" className="animate-fade-in">
+                  <AlertDescription className="font-medium text-sm">{error}</AlertDescription>
+                </Alert>
               )}
-            </button>
-          </form>
-        </div>
 
-        {/* Footer Credit */}
-        <div className="text-center mt-8 text-[12px] text-[#737686] font-medium">
-          &copy; 2026 Luminous POS System. All rights reserved.
+              {/* Email Field */}
+              <div className="space-y-2">
+                <Label htmlFor="login-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Email Pegawai
+                </Label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    required
+                    placeholder="name@store.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    className="pl-10 h-11 bg-muted/50"
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
+              <div className="space-y-2">
+                <Label htmlFor="login-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Kata Sandi
+                </Label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    className="pl-10 h-11 bg-muted/50"
+                  />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 text-base font-semibold"
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    <span>Mengautentikasi...</span>
+                  </>
+                ) : (
+                  <span>Masuk Sistem</span>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Footer */}
+        <div className="text-center mt-6 text-xs text-muted-foreground font-medium">
+          &copy; 2026 KEPOS Point of Sale. All rights reserved.
         </div>
       </div>
     </div>

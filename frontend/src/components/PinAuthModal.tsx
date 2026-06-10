@@ -1,174 +1,141 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Delete, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Loader2, Delete } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface PinAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (pin: string) => void;
+  onSuccess: (pin: string) => void | Promise<void>;
   title?: string;
   description?: string;
-  errorMessage?: string;
   isLoading?: boolean;
+  errorMessage?: string;
 }
 
 export default function PinAuthModal({
   isOpen,
   onClose,
   onSuccess,
-  title = 'Verifikasi Otorisasi',
-  description = 'Masukkan 6-digit PIN Supervisor atau Manager untuk melanjutkan tindakan ini.',
-  errorMessage = '',
+  title = 'Otorisasi PIN',
+  description = 'Masukkan PIN 6 digit dari Supervisor atau Manajer.',
   isLoading = false,
+  errorMessage = ''
 }: PinAuthModalProps) {
-  const [pin, setPin] = useState<string>('');
-  const [localError, setLocalError] = useState<string>('');
+  const [pin, setPin] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
-      setPin('');
-      setLocalError('');
-    }
+    if (!isOpen) setPin('');
   }, [isOpen]);
 
+  // Auto-submit when 6 digits reached
   useEffect(() => {
-    if (errorMessage) {
-      setLocalError(errorMessage);
-      setPin('');
-    }
-  }, [errorMessage]);
-
-  const handleKeyPress = useCallback((num: string) => {
-    if (pin.length >= 6 || isLoading) return;
-    setLocalError('');
-    const newPin = pin + num;
-    setPin(newPin);
-
-    // Auto submit if length is 6
-    if (newPin.length === 6) {
-      onSuccess(newPin);
+    if (pin.length === 6 && !isLoading) {
+      onSuccess(pin);
     }
   }, [pin, isLoading, onSuccess]);
 
-  const handleDelete = useCallback(() => {
-    if (pin.length === 0 || isLoading) return;
-    setPin(pin.slice(0, -1));
-    setLocalError('');
+  const handleKeyPress = useCallback((digit: string) => {
+    if (pin.length < 6 && !isLoading) {
+      setPin(prev => prev + digit);
+    }
   }, [pin, isLoading]);
 
-  // Handle keypress from keyboard
-  useEffect(() => {
-    if (!isOpen || isLoading) return;
+  const handleDelete = () => {
+    setPin(prev => prev.slice(0, -1));
+  };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key >= '0' && e.key <= '9') {
-        handleKeyPress(e.key);
-      } else if (e.key === 'Backspace') {
-        handleDelete();
-      } else if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isLoading, handleKeyPress, handleDelete, onClose]);
-
-  if (!isOpen) return null;
+  const handleClear = () => {
+    setPin('');
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300">
-      <div className="relative w-full max-w-md scale-95 transform rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl transition-all duration-300">
-        
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          disabled={isLoading}
-          className="absolute right-4 top-4 text-on-surface-variant hover:text-on-surface disabled:opacity-50"
-        >
-          <X size={20} />
-        </button>
-
-        {/* Title & Description */}
-        <div className="flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ShieldAlert size={28} />
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm p-6">
+        <DialogHeader className="text-center items-center">
+          <div className="p-3 bg-primary/10 rounded-full mb-2">
+            <ShieldCheck className="w-6 h-6 text-primary" />
           </div>
-          <h3 className="text-xl font-bold text-on-surface">{title}</h3>
-          <p className="mt-2 text-sm text-on-surface-variant leading-relaxed max-w-xs">{description}</p>
-        </div>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
+          <DialogDescription className="text-sm">{description}</DialogDescription>
+        </DialogHeader>
 
-        {/* PIN Indicators */}
-        <div className="my-6 flex justify-center gap-3">
-          {[...Array(6)].map((_, index) => {
-            const hasChar = index < pin.length;
-            return (
-              <div
-                key={index}
-                className={`h-4 w-4 rounded-full border-2 transition-all duration-150 ${
-                  hasChar
-                    ? 'border-primary bg-primary shadow-[0_0_8px_rgba(0,74,198,0.4)]'
-                    : 'border-outline-variant bg-surface-container'
-                }`}
-              />
-            );
-          })}
-        </div>
-
-        {/* Error Message */}
-        {localError && (
-          <div className="mb-4 text-center text-xs font-semibold text-error">
-            {localError}
-          </div>
+        {errorMessage && (
+          <Alert variant="destructive" className="animate-fade-in">
+            <AlertDescription className="text-sm font-medium">{errorMessage}</AlertDescription>
+          </Alert>
         )}
 
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="mb-4 text-center text-xs text-primary animate-pulse">
-            Memverifikasi PIN otorisasi...
-          </div>
-        )}
-
-        {/* Tactile Keypad */}
-        <div className="grid grid-cols-3 gap-3">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <button
-              key={num}
-              type="button"
-              onClick={() => handleKeyPress(num.toString())}
-              disabled={isLoading}
-              className="flex h-16 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-low text-2xl font-semibold text-on-surface active:bg-primary active:text-on-primary active:scale-95 hover:bg-surface-container transition-all font-mono"
+        {/* PIN Display */}
+        <div className="flex justify-center gap-2 my-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className={`w-10 h-12 rounded-lg border-2 flex items-center justify-center text-xl font-bold transition-all ${
+                i < pin.length
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-input bg-muted/50 text-muted-foreground'
+              }`}
             >
-              {num}
-            </button>
+              {i < pin.length ? '•' : ''}
+            </div>
           ))}
-          <button
-            type="button"
-            onClick={onClose}
+        </div>
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Memverifikasi...</span>
+          </div>
+        )}
+
+        {/* Numpad */}
+        <div className="grid grid-cols-3 gap-2 mt-2">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(digit => (
+            <Button
+              key={digit}
+              variant="outline"
+              className="h-12 text-lg font-bold hover:bg-primary hover:text-primary-foreground transition-colors"
+              onClick={() => handleKeyPress(digit)}
+              disabled={isLoading || pin.length >= 6}
+            >
+              {digit}
+            </Button>
+          ))}
+          <Button
+            variant="outline"
+            className="h-12 text-xs font-semibold text-muted-foreground"
+            onClick={handleClear}
             disabled={isLoading}
-            className="flex h-16 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-high text-sm font-semibold text-on-surface-variant hover:text-on-surface active:scale-95 transition-all"
           >
-            Batal
-          </button>
-          <button
-            type="button"
+            Clear
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 text-lg font-bold hover:bg-primary hover:text-primary-foreground transition-colors"
             onClick={() => handleKeyPress('0')}
-            disabled={isLoading}
-            className="flex h-16 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-low text-2xl font-semibold text-on-surface active:bg-primary active:text-on-primary active:scale-95 hover:bg-surface-container transition-all font-mono"
+            disabled={isLoading || pin.length >= 6}
           >
             0
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12"
             onClick={handleDelete}
-            disabled={isLoading}
-            className="flex h-16 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant hover:text-error active:scale-95 transition-all"
+            disabled={isLoading || pin.length === 0}
           >
-            <Delete size={24} />
-          </button>
+            <Delete className="w-5 h-5" />
+          </Button>
         </div>
-      </div>
-    </div>
+
+        <Button variant="outline" className="w-full mt-2" onClick={onClose} disabled={isLoading}>
+          Batal
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
