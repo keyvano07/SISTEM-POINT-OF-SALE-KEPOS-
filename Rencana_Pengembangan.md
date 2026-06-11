@@ -214,28 +214,28 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 #### Card 1: Sistem Membership (Backend & Frontend)
 *   **Description:** Registrasi member dan auto-upgrade tier berdasarkan total transaksi belanja.
 *   **Checklist:**
-    *   [ ] Buat migration: `members`.
-    *   [ ] Buat endpoint API:
+    *   [x] Buat migration: `members`.
+    *   [x] Buat endpoint API:
         *   `POST /api/v1/members` (Registrasi member baru)
         *   `GET /api/v1/members/search` (Cari member via No Telp / Card ID)
-    *   [ ] Buat logic penambahan poin belanja di kasir (misal: kelipatan Rp 10.000 dapat 1 poin).
-    *   [ ] Buat logic otomatis upgrade tier member (`bronze` -> `silver` -> `gold`) berdasarkan data `members.total_spending`.
+    *   [x] Buat logic penambahan poin belanja di kasir (misal: kelipatan Rp 10.000 dapat 1 poin).
+    *   [x] Buat logic otomatis upgrade tier member (`bronze` -> `silver` -> `gold`) berdasarkan data `members.total_spending`.
 
 #### Card 2: Engine Diskon Promo (Backend)
 *   **Description:** Tabel promo fleksibel yang mendukung diskon per-transaksi, produk, atau kategori produk.
 *   **Checklist:**
-    *   [ ] Buat migration: `discounts`.
-    *   [ ] Buat model `Discount` dengan field scope (transaction/product/category), tipe (percentage/fixed_amount), target (all/member_only/tier_specific), dan validitas tanggal.
-    *   [ ] Tulis logic di backend: hitung otomatis diskon transaksi/item di endpoint checkout.
-    *   [ ] Buat API `GET /api/v1/discounts/active` untuk mendapatkan daftar diskon yang sedang aktif hari ini.
+    *   [x] Buat migration: `discounts`.
+    *   [x] Buat model `Discount` dengan field scope (transaction/product/category), tipe (percentage/fixed_amount), target (all/member_only/tier_specific), dan validitas tanggal.
+    *   [x] Tulis logic di backend: hitung otomatis diskon transaksi/item di endpoint checkout.
+    *   [x] Buat API `GET /api/v1/discounts/active` untuk mendapatkan daftar diskon yang sedang aktif hari ini.
 
 #### Card 3: Manajemen Diskon & Member UI (Frontend)
 *   **Description:** Antarmuka frontend untuk pengelolaan diskon oleh manager dan pencarian member di kasir.
 *   **Checklist:**
-    *   [ ] Buat halaman CRUD diskon di dashboard manager (`src/app/dashboard/manager/discounts/page.tsx`).
-    *   [ ] Buat modal pencarian member (via No Telp / Scan Kartu) di halaman POS kasir.
-    *   [ ] Integrasikan auto-apply diskon berdasarkan tier member di UI checkout kasir.
-    *   [ ] Tampilkan riwayat poin & info tier member di dashboard manager.
+    *   [x] Buat halaman CRUD diskon di dashboard manager (`src/app/dashboard/manager/discounts/page.tsx`).
+    *   [x] Buat modal pencarian member (via No Telp / Scan Kartu) di halaman POS kasir.
+    *   [x] Integrasikan auto-apply diskon berdasarkan tier member di UI checkout kasir.
+    *   [x] Tampilkan riwayat poin & info tier member di dashboard manager.
 
 ---
 

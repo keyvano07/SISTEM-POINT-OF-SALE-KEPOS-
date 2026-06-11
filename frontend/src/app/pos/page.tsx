@@ -10,13 +10,17 @@ import {
   LogOut, ShoppingCart, Shield, DollarSign,
   Loader2, Clock, AlertTriangle, CheckCircle, X,
   Wallet, CreditCard, Search, Plus, Minus, Trash2,
-  Lock, Unlock, RefreshCw, ShoppingBag, ClipboardList,
-  Printer, ArrowRight, Smartphone
+  Lock, Unlock, RefreshCw, ShoppingBag, ClipboardList, Package,
+  Printer, ArrowRight, Smartphone, Users, UserPlus, Check,
+  Menu, LayoutDashboard, Tag, ChevronLeft, ChevronRight, ShieldCheck, UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface Product {
   id: number;
@@ -28,12 +32,24 @@ interface Product {
   stock_quantity: number;
   low_stock_threshold: number;
   is_active: boolean;
+  image_url?: string | null;
   category?: { id: number; name: string };
 }
 
 interface Category {
   id: number;
   name: string;
+}
+
+interface Member {
+  id: number;
+  member_code: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  points: number;
+  total_spending: string;
+  tier: 'bronze' | 'silver' | 'gold';
 }
 
 interface OrderDraftItem {
@@ -113,6 +129,63 @@ export default function PosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  // Sidebar State
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
+  const menuItems = [
+    {
+      name: 'Dashboard',
+      path: '/dashboard',
+      icon: LayoutDashboard,
+      roles: ['super_admin', 'manager', 'supervisor', 'kasir', 'pramuniaga', 'stocker']
+    },
+    {
+      name: 'Manajemen Inventori',
+      path: '/dashboard/manager/products',
+      icon: Package,
+      roles: ['super_admin', 'manager']
+    },
+    {
+      name: 'Promo Diskon',
+      path: '/dashboard/manager/discounts',
+      icon: Tag,
+      roles: ['super_admin', 'manager']
+    },
+    {
+      name: 'Manajemen Member',
+      path: '/dashboard/manager/members',
+      icon: Users,
+      roles: ['super_admin', 'manager', 'supervisor']
+    },
+    {
+      name: 'Gudang & Logistik',
+      path: '/dashboard/stocker',
+      icon: ClipboardList,
+      roles: ['super_admin', 'manager', 'supervisor', 'stocker']
+    },
+    {
+      name: 'Point of Sale (Kasir)',
+      path: '/pos',
+      icon: ShoppingCart,
+      roles: ['super_admin', 'manager', 'supervisor', 'kasir']
+    },
+    {
+      name: 'Draft Order',
+      path: '/pramuniaga',
+      icon: UserCheck,
+      roles: ['super_admin', 'manager', 'supervisor', 'pramuniaga']
+    },
+    {
+      name: 'Audit & Rekonsiliasi',
+      path: '/dashboard/supervisor/audit',
+      icon: ShieldCheck,
+      roles: ['super_admin', 'manager', 'supervisor']
+    }
+  ];
+
+  const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role || ''));
+
   // Catalog State
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -165,6 +238,51 @@ export default function PosPage() {
   const [showVoidReasonModal, setShowVoidReasonModal] = useState(false);
   const [voidPin, setVoidPin] = useState('');
 
+  // Member & Discount States (Fase 7)
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<Member[]>([]);
+  const [searchingMembers, setSearchingMembers] = useState(false);
+  
+  // Quick Member Registration Form inside Member Modal
+  const [showRegisterMemberForm, setShowRegisterMemberForm] = useState(false);
+  const [registerMemberData, setRegisterMemberData] = useState({ name: '', phone: '', email: '' });
+  const [registeringMember, setRegisteringMember] = useState(false);
+
+  // Discount Calculation API State
+  const [calcResult, setCalcResult] = useState<any>(null);
+  const [loadingCalc, setLoadingCalc] = useState(false);
+
+  const recalculateDiscounts = useCallback(async (itemsList: PosCartItem[], member: Member | null) => {
+    if (itemsList.length === 0) {
+      setCalcResult(null);
+      return;
+    }
+    setLoadingCalc(true);
+    try {
+      const payload = {
+        member_id: member ? member.id : null,
+        items: itemsList.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity
+        }))
+      };
+      const res = await api.post('/discounts/calculate', payload);
+      if (res.data.success) {
+        setCalcResult(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to calculate discounts:', err);
+    } finally {
+      setLoadingCalc(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    recalculateDiscounts(cartItems, selectedMember);
+  }, [cartItems, selectedMember, recalculateDiscounts]);
+
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -182,10 +300,10 @@ export default function PosPage() {
     }
   }, [isHydrated, token, fetchActiveShift]);
 
-  // Auto-show open shift modal if no active shift
+  // Auto-show/hide open shift modal depending on active shift status
   useEffect(() => {
-    if (isHydrated && !shiftLoading && !activeShift && token) {
-      setShowOpenShiftModal(true);
+    if (isHydrated && !shiftLoading && token) {
+      setShowOpenShiftModal(!activeShift);
     }
   }, [isHydrated, shiftLoading, activeShift, token]);
 
@@ -247,8 +365,8 @@ export default function PosPage() {
 
   const handleOpenShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(openingCashInput);
-    if (isNaN(amount) || amount < 0) {
+    const amount = parseRupiahToNumber(openingCashInput);
+    if (amount < 0) {
       triggerAlert('error', 'Jumlah modal awal tidak valid.');
       return;
     }
@@ -267,8 +385,8 @@ export default function PosPage() {
 
   const handleCloseShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(physicalCashInput);
-    if (isNaN(amount) || amount < 0) {
+    const amount = parseRupiahToNumber(physicalCashInput);
+    if (amount < 0) {
       triggerAlert('error', 'Jumlah uang fisik tidak valid.');
       return;
     }
@@ -302,6 +420,17 @@ export default function PosPage() {
   const formatCurrency = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+  };
+
+  const formatInputRupiah = (value: string) => {
+    const clean = value.replace(/\D/g, '');
+    if (!clean) return '';
+    return new Intl.NumberFormat('id-ID').format(parseInt(clean, 10));
+  };
+
+  const parseRupiahToNumber = (formattedValue: string) => {
+    const clean = formattedValue.replace(/\D/g, '');
+    return clean ? parseInt(clean, 10) : 0;
   };
 
   // Draft and Cart Syncing logic
@@ -442,6 +571,8 @@ export default function PosPage() {
     setTableNumber('');
     setSelectedDraft(null);
     setIsDraftLocked(false);
+    setSelectedMember(null);
+    setCalcResult(null);
     triggerAlert('success', 'Keranjang kasir berhasil di-reset.');
   };
 
@@ -460,15 +591,31 @@ export default function PosPage() {
   };
 
   const getSubtotal = () => {
+    if (calcResult) {
+      return calcResult.subtotal;
+    }
     return cartItems.reduce((sum, item) => sum + parseFloat(item.product.sell_price) * item.quantity, 0);
   };
 
   const getTax = () => {
+    if (calcResult) {
+      return calcResult.tax_amount;
+    }
     return getSubtotal() * 0.11;
   };
 
   const getGrandTotal = () => {
+    if (calcResult) {
+      return calcResult.grand_total;
+    }
     return getSubtotal() + getTax();
+  };
+
+  const getDiscountAmount = () => {
+    if (calcResult) {
+      return calcResult.item_discounts_total + calcResult.transaction_discount_amount;
+    }
+    return 0;
   };
 
   // CHECKOUT & PAYMENTS LOGIC
@@ -492,8 +639,8 @@ export default function PosPage() {
   };
 
   const handleAddPayment = () => {
-    const amt = parseFloat(payAmountInput);
-    if (isNaN(amt) || amt <= 0) {
+    const amt = parseRupiahToNumber(payAmountInput);
+    if (amt <= 0) {
       triggerAlert('error', 'Jumlah pembayaran tidak valid.');
       return;
     }
@@ -553,9 +700,11 @@ export default function PosPage() {
       const payload = {
         order_draft_id: selectedDraft ? selectedDraft.id : null,
         subtotal: getSubtotal(),
-        discount_amount: 0.00,
+        discount_amount: getDiscountAmount(),
         tax_amount: getTax(),
         grand_total: getGrandTotal(),
+        member_id: selectedMember ? selectedMember.id : null,
+        discount_id: calcResult ? calcResult.transaction_discount_id : null,
         payments: payments.map(p => ({
           method: p.method,
           amount: p.amount,
@@ -596,6 +745,60 @@ export default function PosPage() {
       triggerAlert('error', errMsg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSearchMembers = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (memberSearchQuery.trim().length < 3) {
+      triggerAlert('error', 'Masukkan minimal 3 karakter untuk mencari member.');
+      return;
+    }
+    setSearchingMembers(true);
+    try {
+      const res = await api.get('/members', {
+        params: { search: memberSearchQuery }
+      });
+      if (res.data.success) {
+        setMemberSearchResults(res.data.data || []);
+        if ((res.data.data || []).length === 0) {
+          triggerAlert('error', 'Tidak ditemukan member dengan kata kunci tersebut.');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      triggerAlert('error', 'Gagal mencari member.');
+    } finally {
+      setSearchingMembers(false);
+    }
+  };
+
+  const handleRegisterMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registerMemberData.name.trim() || !registerMemberData.phone.trim()) {
+      triggerAlert('error', 'Nama dan Nomor HP wajib diisi.');
+      return;
+    }
+    setRegisteringMember(true);
+    try {
+      const res = await api.post('/members', {
+        name: registerMemberData.name.trim(),
+        phone: registerMemberData.phone.trim(),
+        email: registerMemberData.email.trim() || null
+      });
+      if (res.data.success) {
+        triggerAlert('success', `Member "${res.data.data.name}" berhasil terdaftar!`);
+        setSelectedMember(res.data.data);
+        setShowMemberModal(false);
+        setRegisterMemberData({ name: '', phone: '', email: '' });
+        setShowRegisterMemberForm(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.response?.data?.message || 'Gagal mendaftarkan member baru.';
+      triggerAlert('error', msg);
+    } finally {
+      setRegisteringMember(false);
     }
   };
 
@@ -745,55 +948,98 @@ export default function PosPage() {
   if (!isHydrated || !user) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans flex flex-col justify-between">
-      {/* Alert Toast */}
-      {alertMsg && (
-        <Alert variant={alertMsg.type === 'success' ? 'success' : 'destructive'} className="fixed top-6 right-6 z-[60] animate-fade-in w-auto max-w-md shadow-lg">
-          {alertMsg.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-          <AlertDescription className="font-medium text-sm">{alertMsg.text}</AlertDescription>
-        </Alert>
-      )}
+    <TooltipProvider delayDuration={0}>
+      <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
+        {/* Alert Toast */}
+        {alertMsg && (
+          <Alert variant={alertMsg.type === 'success' ? 'success' : 'destructive'} className="fixed top-6 right-6 z-[60] animate-fade-in w-auto max-w-md shadow-lg">
+            {alertMsg.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+            <AlertDescription className="font-medium text-sm">{alertMsg.text}</AlertDescription>
+          </Alert>
+        )}
 
-      {/* Top Navbar */}
-      <nav className="border-b px-6 py-3 flex justify-between items-center bg-card shadow-sm sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary rounded-xl shadow-lg shadow-primary/20">
-            <ShoppingCart className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-bold text-base tracking-tight">POS Terminal</h1>
+        {/* Top Navbar */}
+        <nav className="border-b border-border/80 px-6 py-3.5 flex justify-between items-center bg-card/85 backdrop-blur-md shadow-sm sticky top-0 z-30 transition-all duration-300">
+          <div className="flex items-center gap-3.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="h-9 w-9 text-muted-foreground hover:bg-accent rounded-xl"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="p-2 bg-primary rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-transform duration-200 cursor-pointer">
+              <ShoppingCart className="w-5 h-5 text-primary-foreground" />
+            </div>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col">
+              <span className="font-extrabold text-sm tracking-tight text-foreground">KEPOS Terminal</span>
+              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Point of Sale</span>
+            </div>
             {activeShift && (
-              <Badge variant="outline" className="font-mono text-primary border-primary/30 bg-primary/5">
-                {activeShift.shift_code}
-              </Badge>
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 text-primary font-mono font-bold text-[10px] rounded-full shadow-sm select-none">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                <span>{activeShift.shift_code}</span>
+              </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
+
+        <div className="flex items-center gap-3">
           {activeShift && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border">
-              <Wallet className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs text-muted-foreground">Modal:</span>
-              <span className="text-xs font-bold text-primary font-mono">{formatCurrency(activeShift.opening_cash)}</span>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold text-xs shadow-sm select-none">
+              <Wallet className="w-3.5 h-3.5 text-emerald-550" />
+              <span>Modal: <strong className="font-mono font-bold">{formatCurrency(activeShift.opening_cash)}</strong></span>
             </div>
           )}
+          
           {activeShift && (
-            <Button variant="outline" size="sm" onClick={() => { fetchHistory(); setShowHistoryModal(true); }} className="gap-1.5 h-9">
-              <ClipboardList className="w-3.5 h-3.5" /> Riwayat
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { fetchHistory(); setShowHistoryModal(true); }}
+              className="gap-2 h-9 rounded-xl px-4 text-xs font-semibold hover:bg-accent border border-border/50 text-foreground transition-all duration-200 active:scale-95 shadow-sm"
+            >
+              <ClipboardList className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Riwayat</span>
             </Button>
           )}
-          <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-lg">
-            <Shield className="w-3.5 h-3.5 text-primary" />
-            <div><p className="text-xs font-semibold leading-tight">{user.name}</p><p className="text-[10px] text-muted-foreground capitalize">{user.role}</p></div>
+
+          <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/65 px-3 py-1 rounded-xl transition-all duration-200 border border-border/60 shadow-sm cursor-pointer select-none group">
+            <div className="w-6 h-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-extrabold uppercase group-hover:scale-105 transition-transform duration-200">
+              {user.name.substring(0, 2)}
+            </div>
+            <div className="text-left hidden md:block">
+              <p className="text-xs font-bold leading-tight text-foreground">{user.name}</p>
+              <p className="text-[9px] text-muted-foreground capitalize leading-none font-medium mt-0.5">{user.role}</p>
+            </div>
           </div>
+
           {activeShift && (
-            <Button variant="outline" size="sm" onClick={() => setShowCloseShiftModal(true)} className="gap-1.5 h-9 text-amber-600 border-amber-300 hover:bg-amber-50">
-              <Clock className="w-3.5 h-3.5" /> Tutup Shift
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCloseShiftModal(true)}
+              className="gap-1.5 h-9 rounded-xl text-xs font-bold border-rose-500/20 text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20 transition-all duration-200 active:scale-95 shadow-sm"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Tutup Shift</span>
             </Button>
           )}
+
           {!activeShift && (
-            <Button variant="destructive" size="sm" onClick={handleLogout} className="gap-1.5 h-9">
-              <LogOut className="w-3.5 h-3.5" /> Keluar
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleLogout}
+              className="gap-1.5 h-9 rounded-xl text-xs font-bold shadow-sm transition-all duration-200 active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Keluar</span>
             </Button>
           )}
         </div>
@@ -850,25 +1096,29 @@ export default function PosPage() {
               </div>
 
               {/* Category tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                <Button
-                  variant={selectedCategoryId === null ? "default" : "outline"}
-                  size="sm"
+              <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none -mx-1 px-1">
+                <button
                   onClick={() => setSelectedCategoryId(null)}
-                  className="whitespace-nowrap"
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${
+                    selectedCategoryId === null
+                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-102"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-transparent"
+                  }`}
                 >
                   Semua
-                </Button>
+                </button>
                 {categories.map(cat => (
-                  <Button
+                  <button
                     key={cat.id}
-                    variant={selectedCategoryId === cat.id ? "default" : "outline"}
-                    size="sm"
                     onClick={() => setSelectedCategoryId(cat.id)}
-                    className="whitespace-nowrap"
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${
+                      selectedCategoryId === cat.id
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-102"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-transparent"
+                    }`}
                   >
                     {cat.name}
-                  </Button>
+                  </button>
                 ))}
               </div>
 
@@ -898,31 +1148,46 @@ export default function PosPage() {
                       <div 
                         key={product.id}
                         onClick={() => !isOutOfStock && handleAddItem(product)}
-                        className={`bg-muted border border-border rounded-lg p-4 flex flex-col justify-between shadow-md hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 group relative cursor-pointer active:scale-98 overflow-hidden ${
+                        className={`bg-card border border-border/85 rounded-xl flex flex-col justify-between shadow-sm hover:shadow-lg hover:border-primary/35 hover:-translate-y-1 transition-all duration-300 group relative cursor-pointer active:scale-[0.98] overflow-hidden ${
                           isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
                         }`}
                       >
-                        <div>
-                          {isOutOfStock ? (
-                            <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-destructive/10 border border-destructive/20 text-destructive rounded-full animate-pulse">Habis</span>
-                          ) : isLowStock ? (
-                            <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full">Stok {product.stock_quantity}</span>
-                          ) : null}
-
-                          <span className="text-[9px] text-primary font-mono tracking-tight block">{product.sku}</span>
-                          <h4 className="font-bold text-xs text-foreground mt-1.5 leading-snug group-hover:text-primary-foreground transition-colors">{product.name}</h4>
-                          {product.category && (
-                            <span className="text-[9px] text-muted-foreground block mt-0.5">{product.category.name}</span>
+                        {/* Product Image Section */}
+                        <div className="w-full h-28 relative bg-muted border-b border-border/80 flex items-center justify-center overflow-hidden">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground/30">
+                              <Package className="w-8 h-8" />
+                            </div>
                           )}
+                          
+                          {/* Stock overlays */}
+                          {isOutOfStock ? (
+                            <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full shadow animate-pulse">Habis</span>
+                          ) : isLowStock ? (
+                            <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-bold bg-amber-500 text-black rounded-full shadow">Stok {product.stock_quantity}</span>
+                          ) : null}
                         </div>
 
-                        <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
-                          <span className="font-bold text-emerald-600 text-xs font-mono">
-                            Rp {parseFloat(product.sell_price).toLocaleString('id-ID')}
-                          </span>
-                          <span className="p-1 bg-primary/10 rounded-lg group-hover:bg-primary/20 text-primary transition-colors">
-                            <Plus className="w-3.5 h-3.5" />
-                          </span>
+                        {/* Product Info Section */}
+                        <div className="p-3 flex-1 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[9px] text-primary font-mono tracking-tight block">{product.sku}</span>
+                            <h4 className="font-bold text-xs text-foreground mt-1.5 leading-snug group-hover:text-primary transition-colors line-clamp-2">{product.name}</h4>
+                            {product.category && (
+                              <span className="text-[9px] text-muted-foreground block mt-0.5">{product.category.name}</span>
+                            )}
+                          </div>
+
+                          <div className="mt-3 pt-2 border-t border-border/60 flex items-center justify-between">
+                            <span className="font-bold text-emerald-600 text-xs font-mono">
+                              Rp {parseFloat(product.sell_price).toLocaleString('id-ID')}
+                            </span>
+                            <span className="p-1.5 bg-primary/10 text-primary rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-sm flex items-center justify-center">
+                              <Plus className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -943,16 +1208,16 @@ export default function PosPage() {
                 </div>
                 <button
                   onClick={() => { fetchDrafts(); setShowDraftModal(true); }}
-                  className="h-9 px-3.5 bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 shadow-md shadow-primary/10"
+                  className="h-9 px-3 rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 border border-border/50"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-3.5 h-3.5 text-primary" />
                   <span>Tarik Antrean</span>
                 </button>
               </div>
 
               {/* Locked State Banner */}
               {selectedDraft && (
-                <div className={`p-3 rounded-lg flex items-center justify-between border ${
+                <div className={`p-3 rounded-xl flex items-center justify-between border ${
                   isDraftLocked 
                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' 
                     : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
@@ -981,57 +1246,80 @@ export default function PosPage() {
               <div className="flex-1 overflow-y-auto max-h-[350px] space-y-3 pr-1 scrollbar-thin py-2">
                 {cartItems.length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground">
-                    <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-muted-foreground animate-pulse" />
+                    <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-muted-foreground/35 animate-pulse" />
                     <p className="text-xs font-semibold text-muted-foreground">Keranjang Kosong</p>
                     <p className="text-[10px] text-muted-foreground mt-1 max-w-[160px] mx-auto">Scan barcode atau pilih menu di sebelah kiri.</p>
                   </div>
                 ) : (
-                  cartItems.map(item => (
-                    <div key={item.product.id} className="bg-muted border border-border rounded-lg p-3.5 flex justify-between gap-2 shadow-inner" style={{ minHeight: '56px' }}>
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-bold text-xs text-foreground leading-normal truncate">{item.product.name}</h5>
-                        <span className="text-[9px] text-muted-foreground font-mono block">Rp {parseFloat(item.product.sell_price).toLocaleString('id-ID')} / pcs</span>
-                        <span className="font-bold text-xs text-emerald-600 font-mono block mt-1">
-                          Rp {(parseFloat(item.product.sell_price) * item.quantity).toLocaleString('id-ID')}
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-col items-end justify-between gap-1">
-                        {!isDraftLocked ? (
-                          <button
-                            onClick={() => handleRemoveItem(item.product.id)}
-                            className="text-muted-foreground hover:text-destructive w-7 h-7 flex items-center justify-center rounded transition-colors active:scale-95"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
-                          <Lock className="w-3 h-3 text-muted-foreground" />
-                        )}
+                  cartItems.map(item => {
+                    const calcItem = calcResult?.items?.find((i: any) => i.product_id === item.product.id);
+                    const discountAmount = calcItem ? calcItem.discount_amount : 0;
+                    const itemSubtotal = calcItem ? calcItem.subtotal : (parseFloat(item.product.sell_price) * item.quantity);
 
-                        <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden p-0.5 font-mono">
-                          <button
-                            onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
-                            disabled={isDraftLocked}
-                            className={`w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-primary-foreground rounded transition-colors active:scale-95 ${
-                              isDraftLocked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-accent'
-                            }`}
-                          >
-                            <Minus className="w-2.5 h-2.5" />
-                          </button>
-                          <span className="w-6 text-center text-xs font-mono font-bold text-foreground">{item.quantity}</span>
-                          <button
-                            onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
-                            disabled={isDraftLocked}
-                            className={`w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-primary-foreground rounded transition-colors active:scale-95 ${
-                              isDraftLocked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-accent'
-                            }`}
-                          >
-                            <Plus className="w-2.5 h-2.5" />
-                          </button>
+                    return (
+                      <div key={item.product.id} className="bg-muted/40 hover:bg-muted/70 border border-border/80 rounded-xl p-3 flex justify-between gap-3 transition-colors shadow-sm" style={{ minHeight: '56px' }}>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-bold text-xs text-foreground leading-normal truncate">{item.product.name}</h5>
+                          <span className="text-[9px] text-muted-foreground font-mono block">Rp {parseFloat(item.product.sell_price).toLocaleString('id-ID')} / pcs</span>
+                          
+                          <div className="flex items-center flex-wrap gap-1 mt-1">
+                            {discountAmount > 0 ? (
+                              <>
+                                <span className="line-through text-[10px] text-muted-foreground/60 font-mono">
+                                  Rp {(parseFloat(item.product.sell_price) * item.quantity).toLocaleString('id-ID')}
+                                </span>
+                                <span className="font-bold text-xs text-emerald-600 font-mono">
+                                  Rp {itemSubtotal.toLocaleString('id-ID')}
+                                </span>
+                                <Badge variant="destructive" className="text-[7px] py-0 px-1 tracking-normal font-mono h-3.5 flex items-center">
+                                  Disc
+                                </Badge>
+                              </>
+                            ) : (
+                              <span className="font-bold text-xs text-emerald-600 font-mono">
+                                  Rp {itemSubtotal.toLocaleString('id-ID')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end justify-between gap-1">
+                          {!isDraftLocked ? (
+                            <button
+                              onClick={() => handleRemoveItem(item.product.id)}
+                              className="text-muted-foreground hover:text-destructive w-7 h-7 flex items-center justify-center rounded transition-colors active:scale-95"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+
+                          <div className="flex items-center bg-background border border-border/80 rounded-xl overflow-hidden p-0.5 font-mono shadow-sm">
+                            <button
+                              onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
+                              disabled={isDraftLocked}
+                              className={`w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-primary-foreground rounded-lg transition-colors active:scale-90 ${
+                                isDraftLocked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-muted'
+                              }`}
+                            >
+                              <Minus className="w-2.5 h-2.5" />
+                            </button>
+                            <span className="w-7 text-center text-xs font-mono font-bold text-foreground">{item.quantity}</span>
+                            <button
+                              onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
+                              disabled={isDraftLocked}
+                              className={`w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-primary-foreground rounded-lg transition-colors active:scale-90 ${
+                                isDraftLocked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-muted'
+                              }`}
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -1054,8 +1342,63 @@ export default function PosPage() {
                 <span>Panel Pembayaran</span>
               </h3>
 
+              {/* Member Section (Fase 7) */}
+              <div className="p-3 bg-muted/50 rounded-xl border border-border space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-primary" />
+                    <span>Informasi Member</span>
+                  </span>
+                  {!selectedMember ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setMemberSearchQuery('');
+                        setMemberSearchResults([]);
+                        setShowRegisterMemberForm(false);
+                        setShowMemberModal(true);
+                      }}
+                      className="h-7 px-3 text-[10px] font-bold gap-1 rounded-full border border-border/40"
+                    >
+                      <Plus className="w-3 h-3" /> Cari / Daftar
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedMember(null)}
+                      className="h-6 px-1.5 text-[9px] text-destructive hover:text-destructive hover:bg-destructive/10 gap-0.5 rounded-full"
+                    >
+                      Hapus
+                    </Button>
+                  )}
+                </div>
+
+                {selectedMember ? (
+                  <div className="text-xs space-y-1 bg-card border border-border p-2.5 rounded-xl shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-foreground truncate max-w-[120px]">{selectedMember.name}</span>
+                      <Badge className="text-[8px] uppercase px-1.5 py-0.5 tracking-wider rounded-full" variant={
+                        selectedMember.tier === 'gold' ? 'gold' : selectedMember.tier === 'silver' ? 'silver' : 'bronze'
+                      }>
+                        {selectedMember.tier}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                      <span>Code: #{selectedMember.member_code}</span>
+                      <span className="text-emerald-500 font-bold">{selectedMember.points} Pts</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic text-center py-2 bg-background/40 rounded-lg border border-dashed border-border/40">
+                    Transaksi ini belum ditautkan ke member.
+                  </p>
+                )}
+              </div>
+
               {/* Order Info */}
-              <div className="space-y-3 text-xs bg-muted p-4 rounded-lg border border-border">
+              <div className="space-y-3 text-xs bg-muted/40 p-4 rounded-xl border border-border/80">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tipe Pesanan:</span>
                   <span className="font-bold text-foreground capitalize">{orderType === 'dine_in' ? 'Dine In' : 'Take Away'}</span>
@@ -1077,28 +1420,51 @@ export default function PosPage() {
               </div>
 
               {/* Pricing breakdown */}
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center py-2 border-b border-border">
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                   <span className="text-muted-foreground font-semibold">Subtotal</span>
                   <span className="font-bold font-mono text-foreground">{formatCurrency(getSubtotal())}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
+
+                {calcResult && calcResult.item_discounts_total > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50 text-rose-500 font-medium">
+                    <span>Diskon Item</span>
+                    <span className="font-bold font-mono">- {formatCurrency(calcResult.item_discounts_total)}</span>
+                  </div>
+                )}
+
+                {calcResult && calcResult.transaction_discount_amount > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50 text-rose-500 font-medium">
+                    <span>Diskon Transaksi</span>
+                    <span className="font-bold font-mono">- {formatCurrency(calcResult.transaction_discount_amount)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                   <span className="text-muted-foreground font-semibold">Pajak PPN (11%)</span>
                   <span className="font-bold font-mono text-muted-foreground">{formatCurrency(getTax())}</span>
                 </div>
-                <div className="flex justify-between items-center py-3">
+
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm font-bold text-emerald-600">Grand Total</span>
                   <span className="text-xl font-extrabold text-emerald-600 font-mono">{formatCurrency(getGrandTotal())}</span>
                 </div>
+
+                {calcResult && calcResult.earned_points > 0 && (
+                  <div className="flex justify-between items-center py-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/20 px-2 rounded">
+                    <span>Poin Didapat:</span>
+                    <span className="font-mono">+{calcResult.earned_points} Pts</span>
+                  </div>
+                )}
               </div>
 
               {/* Checkout trigger */}
               <button
                 onClick={handleOpenCheckout}
                 disabled={cartItems.length === 0}
-                className="w-full h-12 bg-gradient-to-r bg-primary hover:bg-primary/95 text-primary-foreground font-bold rounded-xl text-xs transition-all active:scale-[0.98] disabled:bg-accent disabled:from-slate-800 disabled:to-slate-800 disabled:text-muted-foreground disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-primary/10"
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
               >
-                <DollarSign className="w-4 h-4" />
+                <DollarSign className="w-4.5 h-4.5" />
                 <span>Bayar & Selesai (Fase 5)</span>
               </button>
 
@@ -1111,13 +1477,13 @@ export default function PosPage() {
       {/* ===== CHECKOUT & SPLIT PAYMENT MODAL ===== */}
       {showCheckoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md overflow-y-auto">
-          <div className="w-full max-w-4xl bg-card border border-border rounded-xl p-6 shadow-2xl space-y-6 animate-fade-in my-8">
-            <div className="flex justify-between items-center pb-3 border-b border-border">
+          <div className="w-full max-w-4xl bg-card border border-border/80 rounded-2xl p-6 shadow-2xl space-y-6 animate-fade-in my-8">
+            <div className="flex justify-between items-center pb-3 border-b border-border/80">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-primary" />
                 <span>Checkout & Proses Pembayaran</span>
               </h3>
-              <button onClick={() => setShowCheckoutModal(false)} className="p-1.5 rounded-xl hover:bg-accent text-muted-foreground">
+              <button onClick={() => setShowCheckoutModal(false)} className="p-1.5 rounded-full hover:bg-accent text-muted-foreground transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1125,51 +1491,76 @@ export default function PosPage() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
               
               {/* Left Column: Billing Details (2/5 size) */}
-              <div className="lg:col-span-2 bg-muted border border-border rounded-lg p-5 space-y-4">
+              <div className="lg:col-span-2 bg-muted/40 border border-border/80 rounded-xl p-5 space-y-4 shadow-sm">
                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Detail Pembelian</h4>
                 
                 <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                   {cartItems.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-xs py-1 border-b border-slate-900">
+                    <div key={idx} className="flex justify-between text-xs py-1 border-b border-border/40">
                       <span className="text-muted-foreground truncate max-w-[150px]">{item.product.name}</span>
                       <span className="font-mono text-muted-foreground">{item.quantity} x {formatCurrency(item.product.sell_price)}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="pt-3 border-t border-border space-y-2 text-xs">
+                <div className="pt-3 border-t border-border/60 space-y-2 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal:</span>
                     <span className="font-mono text-foreground">{formatCurrency(getSubtotal())}</span>
                   </div>
+
+                  {calcResult && calcResult.item_discounts_total > 0 && (
+                    <div className="flex justify-between text-rose-500 font-medium">
+                      <span>Diskon Item:</span>
+                      <span className="font-mono">- {formatCurrency(calcResult.item_discounts_total)}</span>
+                    </div>
+                  )}
+
+                  {calcResult && calcResult.transaction_discount_amount > 0 && (
+                    <div className="flex justify-between text-rose-500 font-medium">
+                      <span>Diskon Transaksi:</span>
+                      <span className="font-mono">- {formatCurrency(calcResult.transaction_discount_amount)}</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between text-muted-foreground">
                     <span>PPN (11%):</span>
                     <span className="font-mono text-foreground">{formatCurrency(getTax())}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold text-emerald-600 pt-1 border-t border-slate-900">
+
+                  <div className="flex justify-between text-sm font-bold text-emerald-600 pt-1.5 border-t border-border/60">
                     <span>Total Tagihan:</span>
                     <span className="font-mono text-lg">{formatCurrency(getGrandTotal())}</span>
                   </div>
+
+                  {calcResult && calcResult.earned_points > 0 && (
+                    <div className="flex justify-between text-[10px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded">
+                      <span>Poin Belanja:</span>
+                      <span className="font-mono">+{calcResult.earned_points} Pts</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Added Payments List */}
-                <div className="pt-3 border-t border-border space-y-2">
+                <div className="pt-3 border-t border-border/60 space-y-2">
                   <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Metode Pembayaran Ditambahkan</h5>
                   {payments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Belum ada pembayaran ditambahkan.</p>
+                    <p className="text-xs text-muted-foreground italic bg-background/30 rounded-lg p-2.5 border border-dashed border-border/50 text-center">
+                      Belum ada pembayaran ditambahkan.
+                    </p>
                   ) : (
                     <div className="space-y-2">
                       {payments.map((p, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-card border border-border p-2.5 rounded-xl text-xs">
+                        <div key={idx} className="flex justify-between items-center bg-card border border-border/80 p-2.5 rounded-xl text-xs shadow-sm">
                           <div>
-                            <span className="font-semibold uppercase text-primary">{p.method.replace('_', ' ')}</span>
+                            <span className="font-semibold uppercase text-primary text-[10px]">{p.method.replace('_', ' ')}</span>
                             {p.reference_number && (
                               <span className="text-[9px] text-muted-foreground font-mono block">Ref: {p.reference_number}</span>
                             )}
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="font-bold font-mono text-foreground">{formatCurrency(p.amount)}</span>
-                            <button onClick={() => handleRemovePayment(idx)} className="text-destructive hover:text-rose-300">
+                            <button onClick={() => handleRemovePayment(idx)} className="text-destructive hover:text-rose-400 p-0.5 hover:bg-destructive/10 rounded transition-colors">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -1203,10 +1594,10 @@ export default function PosPage() {
                             setPayReference('');
                             setIsStandalone(false);
                           }}
-                          className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+                          className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-xs font-bold transition-all duration-200 active:scale-95 ${
                             payMethod === m.id
-                              ? 'bg-primary/15 border-violet-500 text-primary shadow-md shadow-violet-500/5'
-                              : 'bg-muted border-border text-muted-foreground hover:border-border hover:text-foreground'
+                              ? 'bg-primary border-transparent text-primary-foreground shadow-lg shadow-primary/25 scale-102'
+                              : 'bg-muted/40 border-transparent text-muted-foreground hover:bg-muted/80 hover:text-foreground'
                           }`}
                         >
                           <Icon className="w-5 h-5" />
@@ -1223,13 +1614,11 @@ export default function PosPage() {
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-bold">Rp</span>
                     <input
-                      type="number"
-                      min="1"
-                      step="500"
+                      type="text"
                       placeholder="Masukkan jumlah bayar..."
                       value={payAmountInput}
-                      onChange={(e) => setPayAmountInput(e.target.value)}
-                      className="w-full bg-muted border border-border rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-primary-foreground font-mono"
+                      onChange={(e) => setPayAmountInput(formatInputRupiah(e.target.value))}
+                      className="w-full bg-muted/40 border border-border/80 rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground font-mono"
                     />
                   </div>
 
@@ -1240,16 +1629,16 @@ export default function PosPage() {
                         <button
                           key={sug}
                           type="button"
-                          onClick={() => setPayAmountInput(sug.toString())}
-                          className="px-2.5 py-1.5 bg-muted border border-border text-muted-foreground rounded-lg text-xs font-bold hover:text-primary-foreground hover:border-border active:scale-95 transition-all font-mono"
+                          onClick={() => setPayAmountInput(formatInputRupiah(sug.toString()))}
+                          className="px-3 py-1.5 bg-muted/40 border border-border/60 text-muted-foreground rounded-full text-xs font-semibold font-mono hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all"
                         >
                           {formatCurrency(sug)}
                         </button>
                       ))}
                       <button
                         type="button"
-                        onClick={() => setPayAmountInput(getRemainingBalance().toString())}
-                        className="px-2.5 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 active:scale-95 transition-all"
+                        onClick={() => setPayAmountInput(formatInputRupiah(getRemainingBalance().toString()))}
+                        className="px-4 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-full text-xs font-bold hover:bg-primary/25 active:scale-95 transition-all"
                       >
                         Uang Pas
                       </button>
@@ -1259,11 +1648,11 @@ export default function PosPage() {
 
                 {/* Standalone Fallback / QRIS Simulator Section */}
                 {payMethod !== 'cash' && (
-                  <div className="bg-muted border border-border rounded-lg p-4 space-y-3.5">
+                  <div className="bg-muted/40 border border-border/80 rounded-xl p-4 space-y-3.5">
                     {payMethod === 'qris' && (
                       <div className="flex flex-col sm:flex-row items-center gap-4">
                         {/* Mock QRIS Code */}
-                        <div className="w-28 h-28 bg-white p-1 rounded-xl flex items-center justify-center relative overflow-hidden group shadow-md">
+                        <div className="w-28 h-28 bg-white p-1.5 rounded-xl flex items-center justify-center relative overflow-hidden group shadow-md border border-border/50">
                           <img
                             src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=simulate-qris-payment"
                             alt="QRIS Code Simulator"
@@ -1286,7 +1675,7 @@ export default function PosPage() {
                             type="button"
                             onClick={simulateQrisPayment}
                             disabled={qrisSimulating}
-                            className="px-3.5 py-2 bg-primary hover:bg-primary/95 disabled:bg-accent disabled:text-muted-foreground text-primary-foreground text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all active:scale-95 shadow-sm shadow-primary/10"
+                            className="px-3.5 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none text-primary-foreground text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all active:scale-95 shadow-sm shadow-primary/10"
                           >
                             <Smartphone className="w-3.5 h-3.5" />
                             <span>Simulasikan Pembayaran Berhasil</span>
@@ -1297,7 +1686,7 @@ export default function PosPage() {
 
                     {/* Standalone Mode Toggle for Cards */}
                     {payMethod !== 'qris' && (
-                      <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <div className="flex justify-between items-center py-2 border-b border-border/40">
                         <div>
                           <label className="text-xs font-bold text-foreground">Gunakan Mesin EDC Standalone</label>
                           <p className="text-[10px] text-muted-foreground">Aktifkan jika pembayaran di-swipe manual tanpa integrasi API langsung.</p>
@@ -1321,7 +1710,7 @@ export default function PosPage() {
                         placeholder="Trace / Auth Code / Reference ID..."
                         value={payReference}
                         onChange={(e) => setPayReference(e.target.value)}
-                        className="w-full bg-card border border-border rounded-xl px-4 h-10 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-primary-foreground"
+                        className="w-full bg-card border border-border/80 rounded-xl px-4 h-10 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
                       />
                     </div>
                   </div>
@@ -1332,15 +1721,15 @@ export default function PosPage() {
                   type="button"
                   onClick={handleAddPayment}
                   disabled={!payAmountInput || parseFloat(payAmountInput) <= 0}
-                  className="w-full h-11 bg-muted hover:bg-accent disabled:bg-accent disabled:text-muted-foreground disabled:cursor-not-allowed text-foreground border border-border rounded-xl text-xs font-bold transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                  className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none border border-transparent rounded-xl text-xs font-bold transition-all active:scale-98 flex items-center justify-center gap-1.5 shadow-md shadow-primary/10"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Tambahkan Pembayaran</span>
                 </button>
 
                 {/* Pay summary totals and action */}
-                <div className="pt-4 border-t border-border flex flex-col gap-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs bg-muted border border-border p-4 rounded-lg">
+                <div className="pt-4 border-t border-border/80 flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs bg-muted/40 border border-border/80 p-4 rounded-xl shadow-inner">
                     <div>
                       <p className="text-muted-foreground">Tersisa Harus Dibayar:</p>
                       <p className="text-lg font-bold text-primary font-mono mt-0.5">{formatCurrency(getRemainingBalance())}</p>
@@ -1355,7 +1744,7 @@ export default function PosPage() {
                     <button
                       type="button"
                       onClick={() => setShowCheckoutModal(false)}
-                      className="flex-1 h-12 bg-accent hover:bg-muted text-muted-foreground font-bold text-xs rounded-xl transition-all"
+                      className="flex-1 h-12 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-bold text-xs rounded-xl transition-all border border-border/50"
                     >
                       Batal
                     </button>
@@ -1363,7 +1752,7 @@ export default function PosPage() {
                       type="button"
                       onClick={handleFinalizeCheckout}
                       disabled={submitting || getRemainingBalance() > 0}
-                      className="flex-[2] h-12 bg-emerald-600 hover:bg-emerald-500 disabled:bg-accent disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2"
+                      className="flex-[2] h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:pointer-events-none text-primary-foreground font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
                     >
                       {submitting && <Loader2 className="w-5 h-5 animate-spin" />}
                       <span>Konfirmasi & Selesaikan Pembayaran</span>
@@ -1381,19 +1770,19 @@ export default function PosPage() {
       {/* ===== POST-PAYMENT RECEIPT MODAL ===== */}
       {showReceiptModal && completedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
-          <div className="w-full max-w-md bg-card border border-border rounded-xl p-6 shadow-2xl space-y-6 animate-fade-in text-center">
+          <div className="w-full max-w-md bg-card border border-border/80 rounded-2xl p-6 shadow-2xl space-y-6 animate-scale-in text-center">
             
             <div className="flex flex-col items-center">
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 animate-pulse">
-                <CheckCircle size={32} />
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 ring-8 ring-emerald-500/5 transition-transform duration-500 scale-100">
+                <CheckCircle size={36} className="animate-pulse" />
               </div>
-              <h3 className="text-xl font-bold text-slate-100">Pembayaran Berhasil!</h3>
-              <p className="text-xs text-muted-foreground mt-1">Invoice: <strong className="text-muted-foreground font-mono">{completedTransaction.invoice_number}</strong></p>
+              <h3 className="text-xl font-extrabold text-foreground">Pembayaran Berhasil!</h3>
+              <p className="text-xs text-muted-foreground mt-1.5">Invoice: <strong className="text-primary font-mono font-bold">{completedTransaction.invoice_number}</strong></p>
             </div>
 
             {/* Micro Receipt Preview */}
-            <div className="bg-muted border border-border rounded-lg p-4 text-left space-y-3 max-h-[200px] overflow-y-auto scrollbar-thin text-xs">
-              <div className="border-b border-border pb-2 text-[10px] text-muted-foreground flex justify-between font-mono">
+            <div className="bg-muted/40 border border-border/80 rounded-xl p-4 text-left space-y-3 max-h-[220px] overflow-y-auto scrollbar-thin text-xs shadow-inner">
+              <div className="border-b border-border/60 pb-2 text-[10px] text-muted-foreground flex justify-between font-mono">
                 <span>POS KEPOS STORE</span>
                 <span>{new Date(completedTransaction?.created_at || new Date()).toLocaleString('id-ID')}</span>
               </div>
@@ -1402,28 +1791,28 @@ export default function PosPage() {
                 {(completedTransaction?.items || []).map((item: TransactionItem, idx: number) => (
                   <div key={idx} className="flex justify-between font-mono">
                     <span className="text-muted-foreground truncate max-w-[200px]">{item.product_name} x{item.quantity}</span>
-                    <span>{formatCurrency(item.subtotal)}</span>
+                    <span className="font-semibold">{formatCurrency(item.subtotal)}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="border-t border-border pt-2 space-y-1 text-muted-foreground">
+              <div className="border-t border-border/60 pt-2 space-y-1 text-muted-foreground">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>{formatCurrency(completedTransaction?.subtotal || 0)}</span>
+                  <span className="font-semibold">{formatCurrency(completedTransaction?.subtotal || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>PPN (11%):</span>
-                  <span>{formatCurrency(completedTransaction?.tax_amount || 0)}</span>
+                  <span className="font-semibold">{formatCurrency(completedTransaction?.tax_amount || 0)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-emerald-600 text-sm border-t border-slate-900 pt-1">
+                <div className="flex justify-between font-bold text-emerald-600 text-sm border-t border-border/60 pt-1.5">
                   <span>Total Tagihan:</span>
                   <span>{formatCurrency(completedTransaction?.grand_total || 0)}</span>
                 </div>
               </div>
 
               {/* Payments details */}
-              <div className="border-t border-dashed border-border pt-2 space-y-1">
+              <div className="border-t border-dashed border-border/60 pt-2 space-y-1">
                 {(completedTransaction?.payments || []).map((p: TransactionPayment, idx: number) => (
                   <div key={idx} className="flex justify-between text-[10px] text-muted-foreground uppercase font-mono">
                     <span>{p.method.replace('_', ' ')}:</span>
@@ -1443,7 +1832,7 @@ export default function PosPage() {
               <button
                 type="button"
                 onClick={() => handlePrintReceipt(completedTransaction)}
-                className="w-full h-12 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm shadow-primary/10 transition-all active:scale-98"
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98]"
               >
                 <Printer className="w-4.5 h-4.5" />
                 <span>Cetak Struk Belanja (PDF)</span>
@@ -1455,13 +1844,168 @@ export default function PosPage() {
                   setShowReceiptModal(false);
                   setCompletedTransaction(null);
                 }}
-                className="w-full h-12 bg-accent hover:bg-slate-750 text-muted-foreground font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                className="w-full h-12 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-bold text-sm rounded-xl flex items-center justify-center gap-1.5 transition-all border border-border/50 active:scale-[0.98]"
               >
                 <span>Mulai Transaksi Baru</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ===== MEMBER SEARCH & REGISTRATION MODAL ===== */}
+      {showMemberModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+          <div className="w-full max-w-md bg-card border border-border rounded-xl p-6 shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <h3 className="text-md font-bold flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <span>Pencarian & Registrasi Member</span>
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowMemberModal(false);
+                  setShowRegisterMemberForm(false);
+                }} 
+                className="p-1 rounded-md hover:bg-accent text-muted-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {!showRegisterMemberForm ? (
+              <div className="space-y-4">
+                <form onSubmit={handleSearchMembers} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Cari Nama / No Telp / Code..."
+                      value={memberSearchQuery}
+                      onChange={(e) => setMemberSearchQuery(e.target.value)}
+                      className="pl-8 text-xs h-9"
+                    />
+                  </div>
+                  <Button type="submit" size="sm" disabled={searchingMembers} className="h-9 px-3 gap-1">
+                    {searchingMembers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                    <span>Cari</span>
+                  </Button>
+                </form>
+
+                {/* Search Results List */}
+                <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                  {memberSearchResults.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">
+                      {searchingMembers ? 'Mencari member...' : 'Masukkan kata kunci untuk mencari member.'}
+                    </p>
+                  ) : (
+                    memberSearchResults.map((m) => (
+                      <div 
+                        key={m.id} 
+                        className="flex justify-between items-center bg-muted/50 border border-border p-2.5 rounded-lg text-xs hover:border-primary/50 transition-colors"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-foreground">{m.name}</span>
+                            <Badge className="text-[7px] uppercase px-1 py-0" variant={
+                              m.tier === 'gold' ? 'gold' : m.tier === 'silver' ? 'silver' : 'bronze'
+                            }>
+                              {m.tier}
+                            </Badge>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground font-mono">
+                            <span>Code: #{m.member_code} • HP: {m.phone}</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setSelectedMember(m);
+                            setShowMemberModal(false);
+                          }}
+                          className="h-7 px-2.5 text-[10px] font-bold"
+                        >
+                          Pilih
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="border-t border-border pt-3 flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Pelanggan belum terdaftar?</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowRegisterMemberForm(true)} 
+                    className="h-8 gap-1 text-[11px] font-semibold"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> Daftar Baru
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleRegisterMember} className="space-y-3 text-xs">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Pendaftaran Member Baru</h4>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Nama Lengkap *</label>
+                  <Input
+                    type="text"
+                    required
+                    placeholder="Masukkan nama lengkap"
+                    value={registerMemberData.name}
+                    onChange={(e) => setRegisterMemberData(prev => ({ ...prev, name: e.target.value }))}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Nomor HP / WA *</label>
+                  <Input
+                    type="tel"
+                    required
+                    placeholder="Contoh: 081234567890"
+                    value={registerMemberData.phone}
+                    onChange={(e) => setRegisterMemberData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Email (Opsional)</label>
+                  <Input
+                    type="email"
+                    placeholder="Contoh: pelanggan@gmail.com"
+                    value={registerMemberData.email}
+                    onChange={(e) => setRegisterMemberData(prev => ({ ...prev, email: e.target.value }))}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowRegisterMemberForm(false)} 
+                    className="flex-1 h-9 text-xs"
+                  >
+                    Kembali
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={registeringMember} 
+                    className="flex-1 h-9 text-xs gap-1"
+                  >
+                    {registeringMember ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    <span>Daftarkan</span>
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -1614,7 +2158,7 @@ export default function PosPage() {
                   placeholder="Contoh: Pembatalan oleh pembeli / salah input kasir..."
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
-                  className="w-full bg-muted border border-border rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-550 placeholder:text-muted-foreground text-primary-foreground resize-none"
+                  className="w-full bg-muted border border-border rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-550 placeholder:text-muted-foreground text-foreground resize-none"
                 />
               </div>
 
@@ -1683,15 +2227,13 @@ export default function PosPage() {
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">Rp</span>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    min="0"
-                    step="1000"
                     autoFocus
-                    placeholder="100000"
+                    placeholder="100.000"
                     value={openingCashInput}
-                    onChange={(e) => setOpeningCashInput(e.target.value)}
-                    className="w-full bg-muted border border-border rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-muted-foreground text-primary-foreground font-mono"
+                    onChange={(e) => setOpeningCashInput(formatInputRupiah(e.target.value))}
+                    className="w-full bg-muted border border-border rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-muted-foreground text-foreground font-mono"
                   />
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -1699,9 +2241,9 @@ export default function PosPage() {
                     <button
                       key={amount}
                       type="button"
-                      onClick={() => setOpeningCashInput(amount.toString())}
+                      onClick={() => setOpeningCashInput(formatInputRupiah(amount.toString()))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95 ${
-                        openingCashInput === amount.toString()
+                        parseRupiahToNumber(openingCashInput) === amount
                           ? 'bg-primary/20 border-primary/40 text-primary'
                           : 'bg-muted border-border text-muted-foreground hover:text-primary-foreground hover:border-border'
                       }`}
@@ -1738,19 +2280,19 @@ export default function PosPage() {
             </button>
 
             <div className="text-center space-y-2">
-              <div className="mx-auto w-fit p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <Clock className="w-10 h-10 text-amber-400" />
+              <div className="mx-auto w-fit p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                <Clock className="w-10 h-10 text-amber-600" />
               </div>
-              <h3 className="text-xl font-bold mt-4">Tutup Shift</h3>
-              <p className="text-sm text-muted-foreground">
-                Hitung uang fisik di laci kas Anda secara manual, lalu masukkan jumlahnya di bawah. Anda <strong className="text-amber-400">tidak akan melihat</strong> jumlah yang diharapkan sistem (Blind Cash Drop).
+              <h3 className="text-xl font-bold mt-4 text-foreground">Tutup Shift</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Hitung uang fisik di laci kas Anda secara manual, lalu masukkan jumlahnya di bawah. Anda <strong className="text-amber-700 font-extrabold">tidak akan melihat</strong> jumlah yang diharapkan sistem (Blind Cash Drop).
               </p>
             </div>
 
             {/* Warning box */}
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2.5">
-              <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-300 leading-relaxed">
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-3.5 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 leading-relaxed font-medium">
                 Setelah shift ditutup, Anda akan <strong>otomatis logout</strong> dari sistem. Pastikan semua transaksi sudah selesai diproses.
               </p>
             </div>
@@ -1761,15 +2303,13 @@ export default function PosPage() {
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">Rp</span>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    min="0"
-                    step="500"
                     autoFocus
                     placeholder="Jumlah setelah dihitung manual..."
                     value={physicalCashInput}
-                    onChange={(e) => setPhysicalCashInput(e.target.value)}
-                    className="w-full bg-muted border border-border rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent placeholder:text-muted-foreground text-primary-foreground font-mono"
+                    onChange={(e) => setPhysicalCashInput(formatInputRupiah(e.target.value))}
+                    className="w-full bg-muted border border-border rounded-xl pl-12 pr-4 h-12 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent placeholder:text-muted-foreground text-foreground font-mono"
                   />
                 </div>
               </div>
@@ -1872,6 +2412,95 @@ export default function PosPage() {
       <footer className="py-3 px-6 border-t bg-card/85 text-center text-[10px] text-muted-foreground">
         KEPOS Point of Sale © 2026. All rights reserved.
       </footer>
+      {/* Sidebar Overlay Drawer */}
+      {showSidebar && (
+        <div 
+          onClick={() => setShowSidebar(false)}
+          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm transition-opacity duration-300"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 bg-card border-r shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-out transform",
+          showSidebar ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Drawer Header */}
+        <div className="p-5 border-b flex justify-between items-center bg-muted/20">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary rounded-xl text-primary-foreground shadow-md shadow-primary/10">
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm tracking-tight">KEPOS Menu</h4>
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Navigasi Utama</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSidebar(false)}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg"
+          >
+            <X className="w-4.5 h-4.5" />
+          </Button>
+        </div>
+
+        {/* Navigation List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+          {filteredMenu.map((item) => {
+            const isActive = item.path === '/pos';
+            const Icon = item.icon;
+
+            return (
+              <Button
+                key={item.path}
+                variant={isActive ? "secondary" : "ghost"}
+                onClick={() => {
+                  setShowSidebar(false);
+                  router.push(item.path);
+                }}
+                className={cn(
+                  "w-full justify-start h-11 px-4 font-semibold rounded-xl text-sm transition-all duration-200",
+                  isActive 
+                    ? "bg-primary/10 text-primary hover:bg-primary/15 shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                )}
+              >
+                <Icon className={cn("w-4.5 h-4.5 mr-3", isActive ? "text-primary" : "text-muted-foreground")} />
+                <span>{item.name}</span>
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Bottom Profile / Logout */}
+        <div className="p-4 border-t bg-muted/10">
+          <div className="flex items-center gap-3 mb-3 p-2 bg-card border border-border/40 rounded-xl shadow-sm">
+            <Avatar className="h-10 w-10 border border-border/80">
+              <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary uppercase">
+                {user.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold truncate text-foreground leading-tight">{user.name}</p>
+              <p className="text-[10px] text-muted-foreground capitalize truncate leading-none mt-1">{user.role.replace('_', ' ')}</p>
+            </div>
+          </div>
+
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className="w-full justify-center h-10 text-destructive hover:text-destructive hover:bg-destructive/10 font-bold text-xs rounded-xl border border-destructive/10 transition-all duration-200 flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Keluar dari Akun</span>
+          </Button>
+        </div>
+      </aside>
+
     </div>
+  </TooltipProvider>
   );
 }

@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 interface Category { id: number; name: string; }
 interface Product {
   id: number; category_id: number; sku: string; barcode: string; name: string;
-  description: string | null; buy_price: string; sell_price: string;
+  description: string | null; image_url: string | null; buy_price: string; sell_price: string;
   stock_quantity: number; low_stock_threshold: number; is_active: boolean;
   is_low_stock: boolean; category?: Category;
 }
@@ -40,6 +40,8 @@ export default function ProductManagementPage() {
     category_id: '', sku: '', barcode: '', name: '', description: '',
     buy_price: '', sell_price: '', stock_quantity: '0', low_stock_threshold: '10', is_active: true
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -73,6 +75,8 @@ export default function ProductManagementPage() {
   const handleOpenAddModal = () => {
     setFormData({ category_id: categories[0]?.id.toString() || '', sku: '', barcode: '', name: '', description: '',
       buy_price: '', sell_price: '', stock_quantity: '0', low_stock_threshold: '10', is_active: true });
+    setImageFile(null);
+    setImageUrlInput('');
     setIsAddModalOpen(true);
   };
 
@@ -85,15 +89,35 @@ export default function ProductManagementPage() {
       stock_quantity: product.stock_quantity.toString(), low_stock_threshold: product.low_stock_threshold.toString(),
       is_active: product.is_active
     });
+    setImageFile(null);
+    setImageUrlInput(product.image_url || '');
     setIsEditModalOpen(true);
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await api.post('/products', { ...formData, category_id: parseInt(formData.category_id),
-        buy_price: parseFloat(formData.buy_price), sell_price: parseFloat(formData.sell_price),
-        stock_quantity: parseInt(formData.stock_quantity), low_stock_threshold: parseInt(formData.low_stock_threshold) });
+      const data = new FormData();
+      data.append('category_id', formData.category_id);
+      data.append('sku', formData.sku);
+      data.append('barcode', formData.barcode);
+      data.append('name', formData.name);
+      data.append('description', formData.description);
+      data.append('buy_price', formData.buy_price);
+      data.append('sell_price', formData.sell_price);
+      data.append('stock_quantity', formData.stock_quantity);
+      data.append('low_stock_threshold', formData.low_stock_threshold);
+      data.append('is_active', formData.is_active ? '1' : '0');
+      
+      if (imageFile) {
+        data.append('image', imageFile);
+      } else if (imageUrlInput) {
+        data.append('image_url', imageUrlInput);
+      }
+
+      const response = await api.post('/products', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       if (response.data.success) { triggerAlert('success', 'Produk berhasil ditambahkan.'); setIsAddModalOpen(false); fetchData(); }
     } catch (err) { console.error(err);
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Gagal menyimpan produk baru.';
@@ -103,9 +127,28 @@ export default function ProductManagementPage() {
   const handleEditProduct = async (e: React.FormEvent) => {
     e.preventDefault(); if (!currentProduct) return;
     try {
-      const response = await api.put(`/products/${currentProduct.id}`, { ...formData, category_id: parseInt(formData.category_id),
-        buy_price: parseFloat(formData.buy_price), sell_price: parseFloat(formData.sell_price),
-        stock_quantity: parseInt(formData.stock_quantity), low_stock_threshold: parseInt(formData.low_stock_threshold) });
+      const data = new FormData();
+      data.append('_method', 'PUT');
+      data.append('category_id', formData.category_id);
+      data.append('sku', formData.sku);
+      data.append('barcode', formData.barcode);
+      data.append('name', formData.name);
+      data.append('description', formData.description);
+      data.append('buy_price', formData.buy_price);
+      data.append('sell_price', formData.sell_price);
+      data.append('stock_quantity', formData.stock_quantity);
+      data.append('low_stock_threshold', formData.low_stock_threshold);
+      data.append('is_active', formData.is_active ? '1' : '0');
+      
+      if (imageFile) {
+        data.append('image', imageFile);
+      } else {
+        data.append('image_url', imageUrlInput);
+      }
+
+      const response = await api.post(`/products/${currentProduct.id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       if (response.data.success) { triggerAlert('success', 'Detail produk berhasil diperbarui.'); setIsEditModalOpen(false); fetchData(); }
     } catch (err) { console.error(err);
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Gagal memperbarui detail produk.';
@@ -188,8 +231,50 @@ export default function ProductManagementPage() {
       </div>
       <div className="space-y-2">
         <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Keterangan (Deskripsi)</Label>
-        <Textarea placeholder="Keterangan opsional..." rows={3} value={formData.description}
+        <Textarea placeholder="Keterangan opsional..." rows={2} value={formData.description}
           onChange={(e) => setFormData({...formData, description: e.target.value})} />
+      </div>
+      <div className="space-y-2 border-t border-border pt-4">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Gambar Produk</Label>
+        <div className="flex flex-col sm:flex-row gap-4 items-center bg-muted/30 p-3 rounded-lg border border-border">
+          <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-card flex items-center justify-center flex-shrink-0">
+            {imageFile ? (
+              <img src={URL.createObjectURL(imageFile)} alt="Preview" className="w-full h-full object-cover" />
+            ) : imageUrlInput ? (
+              <img src={imageUrlInput} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <Package className="w-6 h-6 text-muted-foreground/30" />
+            )}
+          </div>
+          <div className="flex-1 w-full space-y-2">
+            <div>
+              <span className="text-[10px] text-muted-foreground font-medium block mb-1">Pilih File Gambar</span>
+              <Input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setImageFile(e.target.files[0]);
+                  }
+                }} 
+                className="cursor-pointer text-xs h-9 py-1"
+              />
+            </div>
+            <div>
+              <span className="text-[10px] text-muted-foreground font-medium block mb-1">Atau URL Gambar</span>
+              <Input 
+                type="text" 
+                placeholder="https://example.com/image.jpg" 
+                value={imageUrlInput}
+                onChange={(e) => {
+                  setImageUrlInput(e.target.value);
+                  setImageFile(null);
+                }}
+                className="text-xs h-8"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -287,8 +372,19 @@ export default function ProductManagementPage() {
                       <span className="text-muted-foreground">{product.barcode}</span>
                     </TableCell>
                     <TableCell>
-                      <div className="font-semibold">{product.name}</div>
-                      {product.description && <div className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{product.description}</div>}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted border border-border flex items-center justify-center flex-shrink-0">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package className="w-5 h-5 text-muted-foreground/45" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold">{product.name}</div>
+                          {product.description && <div className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{product.description}</div>}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell><Badge variant="secondary">{product.category?.name || 'Uncategorized'}</Badge></TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">

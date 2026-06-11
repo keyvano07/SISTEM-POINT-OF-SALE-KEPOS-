@@ -137,9 +137,15 @@ export default function SupervisorAuditPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2 w-full md:w-80">
-          <TabsTrigger value="shifts" className="gap-1.5">⏱️ Rekonsiliasi Shift</TabsTrigger>
-          <TabsTrigger value="logs" className="gap-1.5">🛡️ Audit Trail</TabsTrigger>
+        <TabsList className="grid grid-cols-2 w-full md:w-80 bg-muted/50 p-1 rounded-xl border">
+          <TabsTrigger value="shifts" className="gap-2 rounded-lg font-semibold data-[state=active]:shadow-sm">
+            <Clock className="w-4 h-4" />
+            <span>Rekonsiliasi Shift</span>
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="gap-2 rounded-lg font-semibold data-[state=active]:shadow-sm">
+            <Activity className="w-4 h-4" />
+            <span>Audit Trail</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="shifts" className="mt-4">
@@ -169,9 +175,23 @@ export default function SupervisorAuditPage() {
                             <div className="font-semibold">{shift.cashier?.name || 'Staff'}</div>
                             <div className="text-xs text-muted-foreground">{shift.cashier?.email}</div>
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground space-y-1">
-                            <div>🟢 {formatDateTime(shift.opened_at)}</div>
-                            {shift.closed_at ? <div>🔴 {formatDateTime(shift.closed_at)}</div> : <Badge variant="success" className="text-[10px]">AKTIF</Badge>}
+                          <TableCell className="text-xs text-muted-foreground space-y-1.5 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+                              <span>{formatDateTime(shift.opened_at)}</span>
+                            </div>
+                            {shift.closed_at ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50" />
+                                <span>{formatDateTime(shift.closed_at)}</span>
+                              </div>
+                            ) : (
+                              <div className="pl-3">
+                                <Badge className="text-[9px] uppercase px-1.5 py-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15 border-none shadow-none font-bold">
+                                  Aktif
+                                </Badge>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(shift.opening_cash)}</TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(shift.physical_cash_input)}</TableCell>
