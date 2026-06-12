@@ -44,10 +44,10 @@ Route::prefix('v1')->group(function () {
 
         // Shifts (Kasir)
         Route::get('/shifts', [\App\Http\Controllers\Api\ShiftController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
+        Route::get('/shifts/active', [\App\Http\Controllers\Api\ShiftController::class, 'active'])->middleware('role:kasir,supervisor,manager,super_admin');
         Route::get('/shifts/{id}', [\App\Http\Controllers\Api\ShiftController::class, 'show'])->middleware('role:supervisor,manager,super_admin');
         Route::post('/shifts/open', [\App\Http\Controllers\Api\ShiftController::class, 'open'])->middleware('role:kasir,super_admin');
         Route::post('/shifts/close', [\App\Http\Controllers\Api\ShiftController::class, 'close'])->middleware('role:kasir,super_admin');
-        Route::get('/shifts/active', [\App\Http\Controllers\Api\ShiftController::class, 'active'])->middleware('role:kasir,super_admin');
         Route::post('/shifts/{id}/audit', [\App\Http\Controllers\Api\ShiftController::class, 'audit'])->middleware('role:supervisor,manager,super_admin');
 
         // Transactions (Kasir/Supervisor)
