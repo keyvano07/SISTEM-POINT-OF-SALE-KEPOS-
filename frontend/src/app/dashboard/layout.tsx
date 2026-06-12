@@ -109,35 +109,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <aside 
           className={cn(
             "bg-card border-r flex flex-col justify-between transition-all duration-200 ease-in-out z-30 flex-shrink-0",
-            isCollapsed ? 'w-[68px]' : 'w-64'
+            isCollapsed ? 'w-[78px]' : 'w-[272px]'
           )}
         >
           {/* Top: Logo + Nav */}
           <div>
             {/* Logo Area */}
-            <div className="h-16 flex items-center justify-between px-3 border-b">
+            <div className="h-20 flex items-center justify-between px-4 border-b">
               <div className={cn(
-                "flex items-center gap-2.5 transition-opacity duration-200",
+                "flex items-center gap-3 transition-opacity duration-200",
                 isCollapsed ? 'opacity-0 hidden' : 'opacity-100'
               )}>
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shadow-sm">
-                  <LayoutDashboard className="w-4 h-4" />
+                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-md shadow-primary/20">
+                  <LayoutDashboard className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-lg text-primary tracking-tight">KEPOS</span>
+                <span className="font-black text-xl text-primary tracking-wider">KEPOS</span>
               </div>
               
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className="h-8 w-8 text-muted-foreground ml-auto"
+                className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-muted ml-auto"
               >
-                {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
               </Button>
             </div>
 
             {/* Navigation Links */}
-            <nav className="p-2 space-y-1">
+            <nav className="p-3 space-y-2">
               {filteredMenu.map((item) => {
                 const isActive = pathname === item.path;
                 const Icon = item.icon;
@@ -148,13 +148,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     variant={isActive ? "secondary" : "ghost"}
                     onClick={() => router.push(item.path)}
                     className={cn(
-                      "w-full justify-start h-10 font-medium",
-                      isActive && "bg-primary/10 text-primary font-semibold hover:bg-primary/15",
+                      "w-full justify-start h-12 rounded-xl transition-all duration-200 px-4",
+                      isActive 
+                        ? "bg-primary/10 text-primary font-bold border border-primary/20 shadow-sm hover:bg-primary/15" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/65 font-semibold",
                       isCollapsed && "justify-center px-0"
                     )}
                   >
-                    <Icon className={cn("w-4 h-4", !isCollapsed && "mr-2.5", isActive && "text-primary")} />
-                    {!isCollapsed && <span className="text-sm truncate">{item.name}</span>}
+                    <Icon className={cn("w-5 h-5", !isCollapsed && "mr-3", isActive && "text-primary")} />
+                    {!isCollapsed && <span className="text-[15px] tracking-wide truncate">{item.name}</span>}
                   </Button>
                 );
 
@@ -164,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <TooltipTrigger asChild>
                         {navButton}
                       </TooltipTrigger>
-                      <TooltipContent side="right" className="font-semibold">
+                      <TooltipContent side="right" className="font-bold text-sm">
                         {item.name}
                       </TooltipContent>
                     </Tooltip>
@@ -177,18 +179,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Bottom: Profile & Logout */}
-          <div className="p-3 border-t">
-            <div className={cn("flex items-center gap-2.5 mb-2", isCollapsed && "justify-center")}>
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="text-xs">
+          <div className="p-4 border-t space-y-3">
+            <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
+              <Avatar className="h-10 w-10 border border-border">
+                <AvatarFallback className="text-sm font-bold bg-primary/5 text-primary">
                   {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{user.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize truncate">{user.role.replace('_', ' ')}</p>
+                  <p className="text-[14px] font-bold text-foreground truncate">{user.name}</p>
+                  <p className="text-xs text-muted-foreground font-semibold capitalize truncate">{user.role.replace('_', ' ')}</p>
                 </div>
               )}
             </div>
@@ -200,20 +202,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     variant="ghost"
                     size="icon"
                     onClick={handleLogout}
-                    className="w-full h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="w-full h-12 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-5 h-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="right">Keluar</TooltipContent>
+                <TooltipContent side="right" className="font-bold text-sm">Keluar</TooltipContent>
               </Tooltip>
             ) : (
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="w-full justify-start h-9 text-destructive hover:text-destructive hover:bg-destructive/10 font-medium text-sm"
+                className="w-full justify-start h-12 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10 font-bold text-[14px]"
               >
-                <LogOut className="w-4 h-4 mr-2.5" />
+                <LogOut className="w-5 h-5 mr-3" />
                 <span>Keluar</span>
               </Button>
             )}
