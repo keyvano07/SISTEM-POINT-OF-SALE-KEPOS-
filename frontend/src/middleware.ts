@@ -5,8 +5,8 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('pos_token')?.value;
   const { pathname } = request.nextUrl;
 
-  // Define public paths that don't need auth (auth routes)
-  const isPublicPath = pathname === '/login';
+  // Define public paths that don't need auth (auth routes & landing page)
+  const isPublicPath = pathname === '/login' || pathname === '/';
 
   // If user has no token and is trying to access a protected path, redirect to login
   if (!token && !isPublicPath) {
@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
   }
 
   // If user has a token and is trying to access login, redirect to dashboard
-  if (token && isPublicPath) {
+  if (token && pathname === '/login') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
