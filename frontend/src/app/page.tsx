@@ -17,19 +17,19 @@ const formatCurrency = (value: string | number) => {
 
 // DUMMY DATA FOR INTERACTIVE SIMULATOR
 const DUMMY_KASIR_PRODUCTS = [
-  { id: 1, name: 'Indomie Goreng', price: 3100, icon: '🍜' },
-  { id: 2, name: 'Aqua Botol 600ml', price: 4000, icon: '🥤' },
-  { id: 3, name: 'Rinso Cair 800ml', price: 18500, icon: '🧼' },
-  { id: 4, name: 'Kopi Kapal Api', price: 1500, icon: '☕' },
+  { id: 1, name: 'Indomie Goreng', price: 3100, image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=150&auto=format&fit=crop&q=60' },
+  { id: 2, name: 'Aqua Botol 600ml', price: 4000, image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=150&auto=format&fit=crop&q=60' },
+  { id: 3, name: 'Rinso Cair 800ml', price: 18500, image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=150&auto=format&fit=crop&q=60' },
+  { id: 4, name: 'Kopi Kapal Api', price: 1500, image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=150&auto=format&fit=crop&q=60' },
 ];
 
 const DUMMY_KIOSK_PRODUCTS = [
-  { id: 101, name: 'Nasi Goreng Spesial', price: 15000, icon: '🍳', category: 'makanan' },
-  { id: 102, name: 'Mie Goreng Telur', price: 12000, icon: '🍜', category: 'makanan' },
-  { id: 103, name: 'Es Teh Manis', price: 4000, icon: '🥤', category: 'minuman' },
-  { id: 104, name: 'Es Jeruk Peras', price: 6000, icon: '🍹', category: 'minuman' },
-  { id: 105, name: 'Camilan Kentang', price: 8000, icon: '🍟', category: 'makanan' },
-  { id: 106, name: 'Kopi Susu Aren', price: 10000, icon: '☕', category: 'minuman' },
+  { id: 101, name: 'Nasi Goreng Spesial', price: 15000, image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=150&auto=format&fit=crop&q=60', category: 'makanan' },
+  { id: 102, name: 'Mie Goreng Telur', price: 12000, image: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=150&auto=format&fit=crop&q=60', category: 'makanan' },
+  { id: 103, name: 'Es Teh Manis', price: 4000, image: 'https://images.unsplash.com/photo-1497534446932-c925b458314e?w=150&auto=format&fit=crop&q=60', category: 'minuman' },
+  { id: 104, name: 'Es Jeruk Peras', price: 6000, image: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=150&auto=format&fit=crop&q=60', category: 'minuman' },
+  { id: 105, name: 'Camilan Kentang', price: 8000, image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=150&auto=format&fit=crop&q=60', category: 'makanan' },
+  { id: 106, name: 'Kopi Susu Aren', price: 10000, image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=150&auto=format&fit=crop&q=60', category: 'minuman' },
 ];
 
 const INITIAL_STOCK_ITEMS = [
@@ -46,9 +46,9 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // --- KASIR STATE ---
-  const [kasirCart, setKasirCart] = useState<{ id: number; name: string; qty: number; price: number; icon: string }[]>([
-    { id: 1, name: 'Indomie Goreng', qty: 2, price: 3100, icon: '🍜' },
-    { id: 2, name: 'Aqua Botol 600ml', qty: 3, price: 4000, icon: '🥤' }
+  const [kasirCart, setKasirCart] = useState<{ id: number; name: string; qty: number; price: number; image: string }[]>([
+    { id: 1, name: 'Indomie Goreng', qty: 2, price: 3100, image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=150&auto=format&fit=crop&q=60' },
+    { id: 2, name: 'Aqua Botol 600ml', qty: 3, price: 4000, image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=150&auto=format&fit=crop&q=60' }
   ]);
   const [kasirPaymentModal, setKasirPaymentModal] = useState(false);
   const [kasirPaymentMethod, setKasirPaymentMethod] = useState<'tunai' | 'qris' | 'kartu'>('tunai');
@@ -139,7 +139,7 @@ export default function LandingPage() {
         name: item.name + (item.modifier !== '-' ? ` (${item.modifier})` : ''),
         qty: item.qty,
         price: item.price,
-        icon: item.id === 101 ? '🍳' : item.id === 102 ? '🍜' : item.id === 103 ? '🥤' : '🍹'
+        image: DUMMY_KIOSK_PRODUCTS.find(kp => kp.id === item.id)?.image || ''
       }));
       setKasirCart(prev => [...prev, ...transferItems]);
       setKioskCart([]);
@@ -753,7 +753,7 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center">
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-3xl">{selectedKioskProduct.icon}</span>
+                    <img src={selectedKioskProduct.image} className="w-12 h-12 object-cover rounded-lg border border-slate-800" alt="" />
                     <div className="text-left">
                       <h4 className="font-extrabold text-white text-sm">{selectedKioskProduct.name}</h4>
                       <p className="text-xs text-blue-400 font-bold font-mono">{formatCurrency(selectedKioskProduct.price)}</p>
@@ -841,7 +841,7 @@ export default function LandingPage() {
                           onClick={() => addProductToKasir(p)}
                           className="flex items-center gap-3 p-3 bg-slate-900/40 hover:bg-slate-900/80 border border-slate-900 rounded-xl text-left transition-all active:scale-95 group"
                         >
-                          <span className="text-2xl group-hover:scale-110 transition-transform">{p.icon}</span>
+                          <img src={p.image} className="w-12 h-12 object-cover rounded-lg border border-slate-800" alt="" />
                           <div>
                             <p className="text-xs font-bold text-slate-200">{p.name}</p>
                             <p className="text-[10px] text-blue-400 font-semibold font-mono">{formatCurrency(p.price)}</p>
@@ -861,9 +861,12 @@ export default function LandingPage() {
                         <div className="space-y-1.5">
                           {kasirCart.map((item) => (
                             <div key={item.id} className="flex items-center justify-between p-2 bg-slate-950/40 border border-slate-900 rounded-lg text-[11px]">
-                              <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-200 truncate max-w-[100px]">{item.name}</span>
-                                <span className="text-[9px] text-slate-500">{formatCurrency(item.price)} x{item.qty}</span>
+                              <div className="flex items-center gap-2">
+                                <img src={item.image} className="w-8 h-8 object-cover rounded-md border border-slate-850" alt="" />
+                                <div className="flex flex-col text-left">
+                                  <span className="font-bold text-slate-200 truncate max-w-[80px]">{item.name}</span>
+                                  <span className="text-[9px] text-slate-500">{formatCurrency(item.price)} x{item.qty}</span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-slate-300 font-bold">{formatCurrency(item.price * item.qty)}</span>
@@ -942,7 +945,7 @@ export default function LandingPage() {
                           onClick={() => handleKioskProductClick(p)}
                           className="flex items-center gap-3 p-3 bg-slate-900/40 hover:bg-slate-900/80 border border-slate-900 rounded-xl text-left transition-all active:scale-95 group relative"
                         >
-                          <span className="text-2xl group-hover:scale-110 transition-transform">{p.icon}</span>
+                          <img src={p.image} className="w-12 h-12 object-cover rounded-lg border border-slate-800" alt="" />
                           <div>
                             <p className="text-xs font-extrabold text-slate-200">{p.name}</p>
                             <p className="text-[10px] text-emerald-400 font-bold font-mono">{formatCurrency(p.price)}</p>
@@ -964,9 +967,12 @@ export default function LandingPage() {
                         <div className="space-y-1.5">
                           {kioskCart.map((item, idx) => (
                             <div key={idx} className="flex items-center justify-between p-2 bg-slate-950/40 border border-slate-900 rounded-lg text-[10px]">
-                              <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-200 truncate max-w-[100px]">{item.name}</span>
-                                <span className="text-[8px] text-blue-400 font-semibold">{item.modifier !== '-' ? `Mod: ${item.modifier}` : 'Original'}</span>
+                              <div className="flex items-center gap-2">
+                                <img src={DUMMY_KIOSK_PRODUCTS.find(p => p.id === item.id || p.name === item.name || item.name.startsWith(p.name))?.image || 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=150&auto=format&fit=crop&q=60'} className="w-8 h-8 object-cover rounded-md border border-slate-850" alt="" />
+                                <div className="flex flex-col text-left">
+                                  <span className="font-bold text-slate-200 truncate max-w-[80px]">{item.name}</span>
+                                  <span className="text-[8px] text-blue-400 font-semibold">{item.modifier !== '-' ? `Mod: ${item.modifier}` : 'Original'}</span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-slate-300 font-bold">x{item.qty}</span>
