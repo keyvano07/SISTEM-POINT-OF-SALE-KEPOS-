@@ -58,6 +58,9 @@ Route::prefix('v1')->group(function () {
         // Audit Logs (Manager/Supervisor)
         Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
 
+        // Dashboard Stats (Manager/Supervisor/Super Admin)
+        Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats'])->middleware('role:supervisor,manager,super_admin');
+
         // Members
         Route::get('/members', [\App\Http\Controllers\Api\MemberController::class, 'index']);
         Route::post('/members', [\App\Http\Controllers\Api\MemberController::class, 'store']);

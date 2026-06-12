@@ -4,14 +4,64 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useShiftStore } from '@/store/useShiftStore';
+import api from '@/services/api';
 import { 
-  Package, Clipboard, ShoppingCart, UserCheck, ShieldCheck, Mail, Store,
-  TrendingUp, DollarSign, Users, Award, AlertCircle, Clock, ArrowRight,
-  Activity, Calendar, X, Loader2, ArrowUpRight, CheckCircle2, ChevronRight, Wallet
+  Package, Clipboard, ShoppingCart, UserCheck, Store,
+  TrendingUp, TrendingDown, DollarSign, Award, AlertCircle, Clock, ArrowRight,
+  Activity, X, Loader2, ArrowUpRight, CheckCircle2, ChevronRight, Wallet,
+  CreditCard, Coins, QrCode
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+
+interface MetricData {
+  today_revenue: number;
+  today_transactions: number;
+  average_cart: number;
+  critical_stock: number;
+  revenue_change_pct: number;
+  transactions_change_pct: number;
+}
+
+interface WeeklyTrend {
+  date: string;
+  day_name: string;
+  revenue: number;
+}
+
+interface BestSeller {
+  name: string;
+  category: string;
+  quantity: number;
+  percentage: number;
+}
+
+interface PaymentMethod {
+  method: string;
+  count: number;
+  amount: number;
+  percentage: number;
+}
+
+interface CategorySale {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+interface DashboardStats {
+  metrics: MetricData;
+  weekly_sales_trend: WeeklyTrend[];
+  best_sellers: BestSeller[];
+  payment_methods: PaymentMethod[];
+  category_sales: CategorySale[];
+}
+
+interface ChartPoint extends WeeklyTrend {
+  x: number;
+  y: number;
+}
 
 // Helper to format currency
 const formatCurrency = (value: string | number) => {
@@ -32,7 +82,7 @@ const parseRupiahToNumber = (formattedValue: string) => {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const { activeShift, isLoading: shiftLoading, fetchActiveShift, openShift } = useShiftStore();
   
   const [showOpenShiftModal, setShowOpenShiftModal] = useState(false);
@@ -41,10 +91,38 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Dashboard stats state
+  const [statsData, setStatsData] = useState<DashboardStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  // Role verification helper
+  const isManagerial = user ? ['super_admin', 'manager', 'supervisor'].includes(user.role) : false;
+  const isKasir = user?.role === 'kasir';
+  const isStocker = user?.role === 'stocker';
+  const isPramuniaga = user?.role === 'pramuniaga';
+
+  const fetchDashboardStats = async () => {
+    setLoadingStats(true);
+    try {
+      const res = await api.get('/dashboard/stats');
+      setStatsData(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch dashboard stats:', err);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
     setIsHydrated(true);
     fetchActiveShift();
   }, [fetchActiveShift]);
+
+  useEffect(() => {
+    if (isHydrated && token && isManagerial) {
+      fetchDashboardStats();
+    }
+  }, [isHydrated, token, isManagerial]);
 
   if (!isHydrated || !user) return null;
 
@@ -103,11 +181,23 @@ export default function DashboardPage() {
     },
   ];
 
-  // Role verification helper
-  const isManagerial = ['super_admin', 'manager', 'supervisor'].includes(user.role);
-  const isKasir = user.role === 'kasir';
-  const isStocker = user.role === 'stocker';
-  const isPramuniaga = user.role === 'pramuniaga';
+  // Process coordinates for Weekly sales trend
+  const weeklyTrend = statsData?.weekly_sales_trend || [];
+  const maxRevenue = weeklyTrend.length > 0 ? Math.max(...weeklyTrend.map((d: WeeklyTrend) => d.revenue), 100000) : 100000;
+
+  const chartPoints: ChartPoint[] = weeklyTrend.map((d: WeeklyTrend, i: number) => {
+    const x = 40 + i * (420 / Math.max(1, weeklyTrend.length - 1));
+    const y = 160 - (d.revenue / maxRevenue) * 120;
+    return { x, y, ...d };
+  });
+
+  const pathD = chartPoints.length > 0 
+    ? `M ${chartPoints[0].x},${chartPoints[0].y} ` + chartPoints.slice(1).map((p: ChartPoint) => `L ${p.x},${p.y}`).join(' ') 
+    : '';
+
+  const areaD = chartPoints.length > 0 
+    ? `${pathD} L ${chartPoints[chartPoints.length - 1].x},180 L ${chartPoints[0].x},180 Z` 
+    : '';
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
@@ -150,176 +240,304 @@ export default function DashboardPage() {
       {/* ================= MANAGERIAL / EXECUTIVE VIEW (Chart & Insights) ================= */}
       {isManagerial && (
         <div className="space-y-6">
-          {/* Summary Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-border/60 hover:shadow-md transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Pendapatan Hari Ini</p>
-                  <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">{formatCurrency(4250000)}</p>
-                  <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-                    <TrendingUp className="w-3 h-3" /> +12.5% vs Kemarin
-                  </p>
-                </div>
-                <div className="p-3 bg-primary/10 text-primary rounded-xl">
-                  <DollarSign className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
+          {loadingStats ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-card border border-border rounded-2xl gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground font-semibold">Memuat data analisis dashboard...</p>
+            </div>
+          ) : (
+            <>
+              {/* Summary Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Pendapatan Hari Ini</p>
+                      <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">
+                        {formatCurrency(statsData?.metrics?.today_revenue || 0)}
+                      </p>
+                      <p className={`text-[10px] font-bold flex items-center gap-0.5 ${
+                        (statsData?.metrics?.revenue_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
+                        {(statsData?.metrics?.revenue_change_pct || 0) >= 0 ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
+                        {Math.abs(statsData?.metrics?.revenue_change_pct || 0)}% vs Kemarin
+                      </p>
+                    </div>
+                    <div className="p-3 bg-primary/10 text-primary rounded-xl">
+                      <DollarSign className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="border-border/60 hover:shadow-md transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Transaksi</p>
-                  <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">124 Order</p>
-                  <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-                    <TrendingUp className="w-3 h-3" /> +8.4% vs Minggu Lalu
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
-                  <ShoppingCart className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Transaksi</p>
+                      <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">
+                        {statsData?.metrics?.today_transactions || 0} Order
+                      </p>
+                      <p className={`text-[10px] font-bold flex items-center gap-0.5 ${
+                        (statsData?.metrics?.transactions_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
+                        {(statsData?.metrics?.transactions_change_pct || 0) >= 0 ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
+                        {Math.abs(statsData?.metrics?.transactions_change_pct || 0)}% vs Kemarin
+                      </p>
+                    </div>
+                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
+                      <ShoppingCart className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="border-border/60 hover:shadow-md transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Rata-rata Keranjang</p>
-                  <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">{formatCurrency(34274)}</p>
-                  <p className="text-[10px] text-muted-foreground font-semibold">Konsisten tinggi</p>
-                </div>
-                <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl">
-                  <Activity className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Rata-rata Keranjang</p>
+                      <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">
+                        {formatCurrency(statsData?.metrics?.average_cart || 0)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-semibold">Nilai transaksi rata-rata</p>
+                    </div>
+                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="border-border/60 hover:shadow-md transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Stok Kritis</p>
-                  <p className="text-2xl font-extrabold font-mono tracking-tight text-destructive">3 Produk</p>
-                  <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold px-2 py-0.5 rounded-full">
-                    <AlertCircle className="w-2.5 h-2.5" /> Butuh Restock
-                  </span>
-                </div>
-                <div className="p-3 bg-red-500/10 text-red-500 rounded-xl">
-                  <Package className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Stok Kritis</p>
+                      <p className={`text-2xl font-extrabold font-mono tracking-tight ${
+                        (statsData?.metrics?.critical_stock || 0) > 0 ? 'text-destructive animate-pulse' : 'text-foreground'
+                      }`}>
+                        {statsData?.metrics?.critical_stock || 0} Produk
+                      </p>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        (statsData?.metrics?.critical_stock || 0) > 0 
+                          ? 'bg-red-100 dark:bg-red-950/20 text-red-600' 
+                          : 'bg-emerald-100 dark:bg-emerald-950/20 text-emerald-600'
+                      }`}>
+                        <AlertCircle className="w-2.5 h-2.5" />
+                        {(statsData?.metrics?.critical_stock || 0) > 0 ? 'Butuh Restock' : 'Stok Aman'}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-red-500/10 text-red-500 rounded-xl">
+                      <Package className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-          {/* Chart & Insights Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Sales Trend Chart Card */}
-            <Card className="border-border/60 lg:col-span-2 shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-primary" />
-                    Tren Penjualan Mingguan
-                  </CardTitle>
-                  <Badge variant="secondary" className="text-[10px] font-bold">7 Hari Terakhir</Badge>
-                </div>
-                <CardDescription>Grafik tren omset harian toko</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4">
-                {/* SVG Bezier Line Chart */}
-                <div className="w-full h-[220px] relative">
-                  <svg className="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgb(59, 130, 246)" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="rgb(59, 130, 246)" stopOpacity="0.0" />
-                      </linearGradient>
-                      <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#10b981" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Grid Lines */}
-                    <line x1="30" y1="30" x2="470" y2="30" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
-                    <line x1="30" y1="80" x2="470" y2="80" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
-                    <line x1="30" y1="130" x2="470" y2="130" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
-                    <line x1="30" y1="180" x2="470" y2="180" stroke="rgba(150,150,150,0.15)" />
-
-                    {/* Area under the path */}
-                    <path
-                      d="M 30,132 C 65,121 65,110 100,110 C 135,110 135,123 170,123 C 205,123 205,82 240,82 C 275,82 275,101 310,101 C 345,101 345,30 380,30 C 415,30 415,52 450,52 L 450,180 L 30,180 Z"
-                      fill="url(#chartGradient)"
-                    />
-
-                    {/* Main smooth Line */}
-                    <path
-                      d="M 30,132 C 65,121 65,110 100,110 C 135,110 135,123 170,123 C 205,123 205,82 240,82 C 275,82 275,101 310,101 C 345,101 345,30 380,30 C 415,30 415,52 450,52"
-                      fill="none"
-                      stroke="url(#lineGradient)"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                    />
-
-                    {/* Data Node points */}
-                    <circle cx="30" cy="132" r="5" className="fill-blue-500 stroke-background stroke-2 cursor-pointer hover:r-7 transition-all" />
-                    <circle cx="100" cy="110" r="5" className="fill-blue-500 stroke-background stroke-2 cursor-pointer hover:r-7 transition-all" />
-                    <circle cx="170" cy="123" r="5" className="fill-blue-500 stroke-background stroke-2 cursor-pointer hover:r-7 transition-all" />
-                    <circle cx="240" cy="82" r="5" className="fill-emerald-500 stroke-background stroke-2 cursor-pointer hover:r-7 transition-all" />
-                    <circle cx="310" cy="101" r="5" className="fill-emerald-500 stroke-background stroke-2 cursor-pointer hover:r-7 transition-all" />
-                    <circle cx="380" cy="30" r="6" className="fill-emerald-500 stroke-background stroke-2 cursor-pointer hover:r-8 transition-all" />
-                    <circle cx="450" cy="52" r="5" className="fill-emerald-500 stroke-background stroke-2 cursor-pointer hover:r-7 transition-all" />
-                  </svg>
-                </div>
-                {/* Labels row */}
-                <div className="flex justify-between text-[10px] text-muted-foreground font-bold px-2 mt-2">
-                  <span>Sen (1.2jt)</span>
-                  <span>Sel (1.9jt)</span>
-                  <span>Rab (1.5jt)</span>
-                  <span>Kam (2.8jt)</span>
-                  <span>Jum (2.2jt)</span>
-                  <span className="text-emerald-500 font-extrabold">Sab (4.5jt)</span>
-                  <span>Min (3.8jt)</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Products Card */}
-            <Card className="border-border/60 shadow-sm flex flex-col justify-between">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Award className="w-4 h-4 text-amber-500" />
-                  Produk Terlaris
-                </CardTitle>
-                <CardDescription>Barang dengan penjualan terbanyak</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-2 flex-1 flex flex-col justify-center">
-                {[
-                  { name: 'Aqua Botol 600ml', cat: 'Minuman', qty: 320, pct: 100 },
-                  { name: 'Indomie Bangladesh', cat: 'Makanan', qty: 250, pct: 78 },
-                  { name: 'Indomie Kuah Special', cat: 'Makanan', qty: 180, pct: 56 },
-                  { name: 'Rinso Cair 800ml', cat: 'Rumah Tangga', qty: 95, pct: 30 }
-                ].map((item, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <div className="min-w-0">
-                        <p className="font-bold truncate text-foreground">{item.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{item.cat}</p>
+              {/* Chart & Insights Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Sales Trend Chart Card */}
+                <Card className="border-border/60 lg:col-span-2 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        Tren Penjualan Mingguan
+                      </CardTitle>
+                      <Badge variant="secondary" className="text-[10px] font-bold">7 Hari Terakhir</Badge>
+                    </div>
+                    <CardDescription>Grafik tren omset harian toko berdasarkan data transaksi riil</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    {weeklyTrend.length === 0 ? (
+                      <div className="w-full h-[220px] flex items-center justify-center border border-dashed border-border rounded-xl text-muted-foreground text-xs font-semibold">
+                        Belum ada data penjualan tersedia.
                       </div>
-                      <span className="font-mono font-bold text-primary pl-2">{item.qty} pcs</span>
-                    </div>
-                    {/* Sleek horizontal bar */}
-                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary rounded-full transition-all duration-500" 
-                        style={{ width: `${item.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+                    ) : (
+                      <>
+                        <div className="w-full h-[220px] relative">
+                          <svg className="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
+                            <defs>
+                              <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="rgb(59, 130, 246)" stopOpacity="0.25" />
+                                <stop offset="100%" stopColor="rgb(59, 130, 246)" stopOpacity="0.0" />
+                              </linearGradient>
+                              <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="#3b82f6" />
+                                <stop offset="100%" stopColor="#10b981" />
+                              </linearGradient>
+                            </defs>
+
+                            {/* Grid Lines */}
+                            <line x1="40" y1="40" x2="460" y2="40" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
+                            <line x1="40" y1="100" x2="460" y2="100" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
+                            <line x1="40" y1="160" x2="460" y2="160" stroke="rgba(150,150,150,0.15)" />
+
+                            {/* Area under the path */}
+                            {areaD && <path d={areaD} fill="url(#chartGradient)" />}
+
+                            {/* Main smooth Line */}
+                            {pathD && (
+                              <path
+                                d={pathD}
+                                fill="none"
+                                stroke="url(#lineGradient)"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                              />
+                            )}
+
+                            {/* Data Node points */}
+                            {chartPoints.map((pt: ChartPoint, idx: number) => (
+                              <g key={idx}>
+                                <circle 
+                                  cx={pt.x} 
+                                  cy={pt.y} 
+                                  r="4" 
+                                  className="fill-primary stroke-background stroke-2 cursor-pointer hover:r-6 transition-all" 
+                                />
+                              </g>
+                            ))}
+                          </svg>
+                        </div>
+                        {/* Labels row */}
+                        <div className="flex justify-between text-[10px] text-muted-foreground font-bold px-2 mt-2">
+                          {chartPoints.map((pt: ChartPoint, idx: number) => (
+                            <span key={idx} className="text-center w-12 truncate">
+                              {pt.day_name} ({pt.revenue >= 1000000 ? `${(pt.revenue / 1000000).toFixed(1)}jt` : `${(pt.revenue / 1000).toFixed(0)}k`})
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Top Products Card */}
+                <Card className="border-border/60 shadow-sm flex flex-col justify-between">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Award className="w-4 h-4 text-amber-500" />
+                      Produk Terlaris
+                    </CardTitle>
+                    <CardDescription>Barang dengan penjualan terbanyak (30 Hari Terakhir)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-2 flex-1 flex flex-col justify-center">
+                    {!statsData?.best_sellers || statsData.best_sellers.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground text-xs font-semibold border border-dashed border-border rounded-xl">
+                        Tidak ada data produk terlaris.
+                      </div>
+                    ) : (
+                      statsData.best_sellers.map((item: BestSeller, idx: number) => (
+                        <div key={idx} className="space-y-1.5">
+                          <div className="flex justify-between items-center text-xs">
+                            <div className="min-w-0">
+                              <p className="font-bold truncate text-foreground">{item.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{item.category}</p>
+                            </div>
+                            <span className="font-mono font-bold text-primary pl-2">{item.quantity} pcs</span>
+                          </div>
+                          {/* Sleek horizontal bar */}
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full transition-all duration-500" 
+                              style={{ width: `${item.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Row 3: Additional Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Payment Methods Distribution */}
+                <Card className="border-border/60 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-indigo-500" />
+                      Metode Pembayaran Terpopuler
+                    </CardTitle>
+                    <CardDescription>Pembagian transaksi berdasarkan metode pembayaran (30 Hari Terakhir)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-2">
+                    {!statsData?.payment_methods || statsData.payment_methods.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground text-xs font-semibold border border-dashed border-border rounded-xl">
+                        Belum ada data metode pembayaran.
+                      </div>
+                    ) : (
+                      statsData.payment_methods.map((pm: PaymentMethod, idx: number) => {
+                        const getIcon = (method: string) => {
+                          if (method.toLowerCase().includes('qris')) return <QrCode className="w-4 h-4 text-emerald-500" />;
+                          if (method.toLowerCase().includes('tunai') || method.toLowerCase().includes('cash')) return <Coins className="w-4 h-4 text-amber-500" />;
+                          return <CreditCard className="w-4 h-4 text-blue-500" />;
+                        };
+                        return (
+                          <div key={idx} className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <div className="flex items-center gap-2">
+                                {getIcon(pm.method)}
+                                <span className="font-bold text-foreground">{pm.method}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-mono font-bold text-foreground">{formatCurrency(pm.amount)}</span>
+                                <span className="text-[10px] text-muted-foreground pl-1.5">({pm.count} transaksi)</span>
+                              </div>
+                            </div>
+                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden flex items-center">
+                              <div 
+                                className="h-full bg-indigo-500 rounded-full transition-all" 
+                                style={{ width: `${pm.percentage}%` }}
+                              />
+                              <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 pl-2">{pm.percentage}%</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Category Performance */}
+                <Card className="border-border/60 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-emerald-500" />
+                      Penjualan Per Kategori Produk
+                    </CardTitle>
+                    <CardDescription>Ringkasan performa penjualan berdasarkan kategori (30 Hari Terakhir)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-2">
+                    {!statsData?.category_sales || statsData.category_sales.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground text-xs font-semibold border border-dashed border-border rounded-xl">
+                        Belum ada data penjualan kategori.
+                      </div>
+                    ) : (
+                      statsData.category_sales.slice(0, 4).map((cat: CategorySale, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 border border-border rounded-xl hover:bg-muted/50 transition-colors">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-foreground">{cat.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{cat.quantity} produk terjual</p>
+                          </div>
+                          <div className="text-right space-y-0.5">
+                            <p className="text-xs font-extrabold font-mono text-primary">{formatCurrency(cat.revenue)}</p>
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15 border-none text-[8px] font-extrabold py-0 px-1.5">
+                              Paling Laris
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
         </div>
       )}
 
