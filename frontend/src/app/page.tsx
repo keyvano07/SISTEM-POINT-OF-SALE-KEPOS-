@@ -72,23 +72,6 @@ export default function LandingPage() {
 
   useEffect(() => {
     setMounted(true);
-    
-    // Intersection Observer for scroll-driven animations
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('opacity-100', 'translate-y-0');
-          entry.target.classList.remove('opacity-0', 'translate-y-12');
-        }
-      });
-    }, { threshold: 0.05 });
-
-    const animatedElements = document.querySelectorAll('.scroll-animate');
-    animatedElements.forEach(el => observer.observe(el));
-
-    return () => {
-      animatedElements.forEach(el => observer.unobserve(el));
-    };
   }, []);
 
   if (!mounted) return null;
@@ -552,7 +535,7 @@ export default function LandingPage() {
             {platformStats.map((stat, idx) => (
               <div 
                 key={idx} 
-                className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out p-6 rounded-2xl border border-slate-900 bg-slate-900/10 text-center relative overflow-hidden"
+                className="transition-all duration-700 ease-out p-6 rounded-2xl border border-slate-900 bg-slate-900/10 text-center relative overflow-hidden"
                 style={{ transitionDelay: `${idx * 100}ms` }}
               >
                 <div className="absolute top-2 right-2 opacity-10">
@@ -574,7 +557,7 @@ export default function LandingPage() {
       <section id="fitur" className="py-24 border-t border-slate-900 px-6 relative bg-slate-950">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center max-w-3xl mx-auto mb-16 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out">
+          <div className="text-center max-w-3xl mx-auto mb-16 transition-all duration-700 ease-out">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               Fitur Lengkap POS Ritel Kelas Enterprise
             </h2>
@@ -588,7 +571,7 @@ export default function LandingPage() {
             {features.map((feat, idx) => (
               <div 
                 key={idx} 
-                className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out p-6 rounded-2xl border border-slate-900 bg-slate-900/20 hover:border-slate-800 hover:bg-slate-900/30 hover:-translate-y-1 transition-all"
+                className="transition-all duration-700 ease-out p-6 rounded-2xl border border-slate-900 bg-slate-900/20 hover:border-slate-800 hover:bg-slate-900/30 hover:-translate-y-1 transition-all"
                 style={{ transitionDelay: `${idx * 100}ms` }}
               >
                 <div className={`w-12 h-12 rounded-xl border flex items-center justify-center mb-5 ${feat.color}`}>
@@ -605,7 +588,7 @@ export default function LandingPage() {
       {/* Workflow Section */}
       <section id="alur" className="py-24 border-t border-slate-900 px-6 relative bg-slate-950/40">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out">
+          <div className="text-center max-w-3xl mx-auto mb-16 transition-all duration-700 ease-out">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               Alur Kerja Transaksi KEPOS
             </h2>
@@ -618,7 +601,7 @@ export default function LandingPage() {
             {workflowSteps.map((ws, idx) => (
               <div 
                 key={idx}
-                className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out p-6 rounded-2xl border border-slate-900 bg-slate-950 relative overflow-hidden"
+                className="transition-all duration-700 ease-out p-6 rounded-2xl border border-slate-900 bg-slate-950 relative overflow-hidden"
                 style={{ transitionDelay: `${idx * 150}ms` }}
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-tr from-transparent to-white/5 rounded-bl-full pointer-events-none" />
@@ -638,7 +621,7 @@ export default function LandingPage() {
       <section id="simulator" className="py-24 border-t border-slate-900 px-6 relative bg-slate-950/20">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center max-w-3xl mx-auto mb-16 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out">
+          <div className="text-center max-w-3xl mx-auto mb-16 transition-all duration-700 ease-out">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               Eksplorasi Simulasi Antarmuka KEPOS
             </h2>
@@ -648,7 +631,7 @@ export default function LandingPage() {
           </div>
 
           {/* Tab Selector */}
-          <div className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out flex flex-wrap gap-2 justify-center max-w-xl mx-auto p-1.5 rounded-2xl bg-slate-900/50 border border-slate-900 mb-12">
+          <div className="transition-all duration-700 ease-out flex flex-wrap gap-2 justify-center max-w-xl mx-auto p-1.5 rounded-2xl bg-slate-900/50 border border-slate-900 mb-12">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -666,7 +649,7 @@ export default function LandingPage() {
           </div>
 
           {/* Simulator Content Preview (Highly Interactive & Premium) */}
-          <div className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out w-full max-w-4xl mx-auto rounded-2xl border border-slate-900 bg-slate-950/80 p-6 shadow-xl relative min-h-[420px] flex flex-col justify-between text-left overflow-hidden">
+          <div className="transition-all duration-700 ease-out w-full max-w-4xl mx-auto rounded-2xl border border-slate-900 bg-slate-950/80 p-6 shadow-xl relative min-h-[420px] flex flex-col justify-between text-left overflow-hidden">
             
             {/* Overlay: Kasir Payment Modal */}
             {kasirPaymentModal && (
@@ -1157,7 +1140,7 @@ export default function LandingPage() {
       <section className="py-24 border-t border-slate-900 px-6 relative bg-slate-950">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center max-w-3xl mx-auto mb-16 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out">
+          <div className="text-center max-w-3xl mx-auto mb-16 transition-all duration-700 ease-out">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               Dipercaya oleh Pemilik Usaha Ritel
             </h2>
@@ -1170,7 +1153,7 @@ export default function LandingPage() {
             {testimonials.map((t, idx) => (
               <div 
                 key={idx}
-                className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out p-8 rounded-2xl border border-slate-900 bg-slate-900/10 relative text-left"
+                className="transition-all duration-700 ease-out p-8 rounded-2xl border border-slate-900 bg-slate-900/10 relative text-left"
                 style={{ transitionDelay: `${idx * 150}ms` }}
               >
                 <div className="absolute top-6 right-8 text-blue-500/10"><MessageSquare className="w-12 h-12" /></div>
@@ -1195,7 +1178,7 @@ export default function LandingPage() {
       {/* FAQ Accordion Section */}
       <section id="faq" className="py-24 border-t border-slate-900 px-6 relative bg-slate-950/40">
         <div className="max-w-4xl mx-auto text-left">
-          <div className="text-center mb-16 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out">
+          <div className="text-center mb-16 transition-all duration-700 ease-out">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               Pertanyaan yang Sering Diajukan
             </h2>
@@ -1208,7 +1191,7 @@ export default function LandingPage() {
             {faqs.map((faq, idx) => (
               <div 
                 key={idx}
-                className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out rounded-2xl border border-slate-900 bg-slate-900/20 overflow-hidden transition-all"
+                className="transition-all duration-700 ease-out rounded-2xl border border-slate-900 bg-slate-900/20 overflow-hidden transition-all"
                 style={{ transitionDelay: `${idx * 100}ms` }}
               >
                 <button
@@ -1242,7 +1225,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
-            <div className="space-y-6 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out text-left">
+            <div className="space-y-6 transition-all duration-700 ease-out text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-bold text-indigo-400">
                 <Terminal className="w-3.5 h-3.5" />
                 <span>Lead Architect & Engineer</span>
@@ -1270,7 +1253,7 @@ export default function LandingPage() {
             </div>
 
             {/* Right Graphic Mockup */}
-            <div className="scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out flex justify-center lg:justify-end">
+            <div className="transition-all duration-700 ease-out flex justify-center lg:justify-end">
               <div className="p-8 rounded-2xl border border-slate-900 bg-slate-900/10 backdrop-blur-sm max-w-md w-full relative text-left">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
                 <div className="flex items-start gap-4">
@@ -1308,7 +1291,7 @@ export default function LandingPage() {
 
       {/* CTA final Section */}
       <section className="py-24 border-t border-slate-900 px-6 relative bg-slate-950/40 text-center">
-        <div className="max-w-4xl mx-auto space-y-6 scroll-animate opacity-0 translate-y-12 transition-all duration-700 ease-out">
+        <div className="max-w-4xl mx-auto space-y-6 transition-all duration-700 ease-out">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
             Siap Mengakselerasi Bisnis Ritel Anda?
           </h2>
