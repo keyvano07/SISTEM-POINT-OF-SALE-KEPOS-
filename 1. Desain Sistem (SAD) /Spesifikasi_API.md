@@ -726,6 +726,80 @@ Semua endpoint wajib mengembalikan data dengan format JSON standar berikut:
   }
   ```
 
+#### 5. List Shifts by Date (Supervisor/Manager/Owner)
+* **Endpoint:** `GET /api/v1/shifts`
+* **Deskripsi:** Mendapatkan daftar shift kasir pada tanggal tertentu (default hari ini) untuk dipantau oleh Supervisor, Manager, atau Owner.
+* **Headers:** `Authorization: Bearer {token}` (Role: `supervisor` / `manager` / `super_admin`)
+* **Query Parameters:**
+  * `date` (string, optional, format `YYYY-MM-DD`, default: hari ini)
+  * `status` (string, optional: `open`, `closed`, `audited`)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Daftar shift berhasil diambil.",
+    "data": [
+      {
+        "id": 5,
+        "shift_code": "SHIFT-20260607-0002",
+        "cashier_id": 2,
+        "cashier_name": "Budi Kasir",
+        "opening_cash": 100000.00,
+        "physical_cash_input": 1250000.00,
+        "status": "closed",
+        "opened_at": "2026-06-07T08:00:00Z",
+        "closed_at": "2026-06-07T18:00:00Z"
+      }
+    ]
+  }
+  ```
+
+#### 6. Get Detail Shift (Supervisor/Manager/Owner)
+* **Endpoint:** `GET /api/v1/shifts/{id}`
+* **Deskripsi:** Mendapatkan detail lengkap shift tertentu, termasuk expected cash, discrepancy, ringkasan tipe pembayaran, dan log transaksi.
+* **Headers:** `Authorization: Bearer {token}` (Role: `supervisor` / `manager` / `super_admin`)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Detail shift berhasil diambil.",
+    "data": {
+      "id": 5,
+      "shift_code": "SHIFT-20260607-0002",
+      "cashier": {
+        "id": 2,
+        "name": "Budi Kasir",
+        "email": "kasir@toko.com"
+      },
+      "opening_cash": 100000.00,
+      "expected_cash": 1255000.00,
+      "physical_cash_input": 1250000.00,
+      "discrepancy": -5000.00,
+      "status": "closed",
+      "audit_status": "discrepancy",
+      "audit_notes": "Selisih kurang Rp 5.000 karena kesalahan pengembalian receh.",
+      "audited_by_name": "Siti Supervisor",
+      "opened_at": "2026-06-07T08:00:00Z",
+      "closed_at": "2026-06-07T18:00:00Z",
+      "payment_summary": {
+        "cash": 1155000.00,
+        "qris": 500000.00,
+        "card": 300000.00
+      },
+      "transactions": [
+        {
+          "id": 5012,
+          "invoice_number": "TRX-20260607-0012",
+          "grand_total": 23760.00,
+          "payment_method": "cash",
+          "status": "completed",
+          "created_at": "2026-06-07T17:45:00Z"
+        }
+      ]
+    }
+  }
+  ```
+
 ---
 
 ### E. Cluster 5: Membership & Diskon Promo

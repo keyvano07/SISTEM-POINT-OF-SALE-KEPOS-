@@ -38,6 +38,10 @@ class ShiftController extends Controller
                 $query->where('audit_status', $request->audit_status);
             }
 
+            if ($request->has('date') && !empty($request->date)) {
+                $query->whereDate('opened_at', $request->date);
+            }
+
             $shifts = $query->get();
 
             return response()->json([
@@ -326,6 +330,70 @@ class ShiftController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat mengaudit shift.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get details of a specific shift (Supervisor/Manager/Owner).
+     */
+    public function show(Request $request, $id)
+    {
+        $user = $request->user();
+
+        // Only manager, supervisor, or super_admin can view shift details
+        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk melihat detail shift.'
+            ], 403);
+        }
+
+        try {
+            $shift = Shift::with(['cashier', 'auditor'])->findOrFail($id);
+
+            // Verify store_id matches
+            if ($shift->store_id !== $user->store_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akses ditolak. Shift ini bukan milik toko Anda.'
+                ], 403);
+            }
+
+            // Get payment summary for this shift (completed transactions only)
+            $paymentSummary = DB::table('payments')
+                ->join('transactions', 'payments.transaction_id', '=', 'transactions.id')
+                ->where('transactions.shift_id', $shift->id)
+                ->where('transactions.status', 'completed')
+                ->select('payments.method', DB::raw('SUM(payments.amount - payments.change_amount) as total'))
+                ->groupBy('payments.method')
+                ->pluck('total', 'method');
+
+            // Load transactions for this shift
+            $transactions = DB::table('transactions')
+                ->where('shift_id', $shift->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Detail shift berhasil diambil.',
+                'data' => [
+                    'shift' => $shift,
+                    'payment_summary' => [
+                        'cash' => (float) ($paymentSummary['cash'] ?? 0),
+                        'qris' => (float) ($paymentSummary['qris'] ?? 0),
+                        'debit_card' => (float) ($paymentSummary['debit_card'] ?? 0),
+                        'credit_card' => (float) ($paymentSummary['credit_card'] ?? 0),
+                    ],
+                    'transactions' => $transactions
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil detail shift.',
                 'error' => $e->getMessage()
             ], 500);
         }

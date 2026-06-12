@@ -38,7 +38,7 @@ class DiscountService
             }
 
             $product = $products[$productId];
-            $unitPrice = (float)$product->sell_price;
+            $unitPrice = isset($item['unit_price']) ? (float)$item['unit_price'] : (float)$product->sell_price;
             $itemSubtotalBefore = $unitPrice * $quantity;
 
             // Find applicable discounts for this product or its category

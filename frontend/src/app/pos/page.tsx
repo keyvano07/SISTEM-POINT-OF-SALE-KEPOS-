@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useShiftStore } from '@/store/useShiftStore';
 import api from '@/services/api';
+import DashboardLayout from '../dashboard/layout';
 import PinAuthModal from '@/components/PinAuthModal';
 import {
   LogOut, ShoppingCart, Shield, DollarSign,
   Loader2, Clock, AlertTriangle, CheckCircle, X,
   Wallet, CreditCard, Search, Plus, Minus, Trash2,
   Lock, Unlock, RefreshCw, ShoppingBag, ClipboardList, Package,
-  Printer, ArrowRight, Smartphone, Users, UserPlus, Check,
+  Printer, ArrowRight, Smartphone, Users, UserPlus, Check, User,
   Menu, LayoutDashboard, Tag, ChevronLeft, ChevronRight, ShieldCheck, UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,8 @@ interface OrderDraft {
 interface PosCartItem {
   product: Product;
   quantity: number;
+  customizations?: any;
+  customUnitPrice?: number;
 }
 
 interface PaymentInput {
@@ -119,7 +122,16 @@ interface Transaction {
 export default function PosPage() {
   const router = useRouter();
   const { user, clearAuth, token } = useAuthStore();
-  const { activeShift, isLoading: shiftLoading, fetchActiveShift, openShift, closeShift } = useShiftStore();
+  const { 
+    activeShift, 
+    monitoredShift, 
+    isMonitoringMode, 
+    isLoading: shiftLoading, 
+    fetchActiveShift, 
+    openShift, 
+    closeShift, 
+    setMonitoredShift 
+  } = useShiftStore();
 
   const [isHydrated, setIsHydrated] = useState(false);
   const [showOpenShiftModal, setShowOpenShiftModal] = useState(false);
@@ -128,6 +140,24 @@ export default function PosPage() {
   const [physicalCashInput, setPhysicalCashInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  // States for daily shifts selection screen (monitoring)
+  const [activeShiftsList, setActiveShiftsList] = useState<any[]>([]);
+  const [loadingShiftsList, setLoadingShiftsList] = useState(false);
+
+  const isManagementRole = user && ['super_admin', 'manager', 'supervisor'].includes(user.role);
+
+  const fetchActiveShiftsList = async () => {
+    setLoadingShiftsList(true);
+    try {
+      const res = await api.get('/shifts?status=open');
+      setActiveShiftsList(res.data.data || []);
+    } catch (err) {
+      console.error('Gagal mengambil daftar shift aktif:', err);
+    } finally {
+      setLoadingShiftsList(false);
+    }
+  };
 
   // Sidebar State
   const [showSidebar, setShowSidebar] = useState(false);
@@ -265,7 +295,8 @@ export default function PosPage() {
         member_id: member ? member.id : null,
         items: itemsList.map(item => ({
           product_id: item.product.id,
-          quantity: item.quantity
+          quantity: item.quantity,
+          unit_price: item.customUnitPrice || undefined
         }))
       };
       const res = await api.post('/discounts/calculate', payload);
@@ -300,20 +331,31 @@ export default function PosPage() {
     }
   }, [isHydrated, token, fetchActiveShift]);
 
-  // Auto-show/hide open shift modal depending on active shift status
+  // Auto-show/hide open shift modal depending on active shift status (only for cashier)
   useEffect(() => {
-    if (isHydrated && !shiftLoading && token) {
-      setShowOpenShiftModal(!activeShift);
+    if (isHydrated && !shiftLoading && token && user) {
+      if (user.role === 'kasir') {
+        setShowOpenShiftModal(!activeShift);
+      } else {
+        setShowOpenShiftModal(false);
+      }
     }
-  }, [isHydrated, shiftLoading, activeShift, token]);
+  }, [isHydrated, shiftLoading, activeShift, token, user]);
 
-  // Fetch Catalog & Drafts when shift is active
+  // Fetch Catalog & Drafts when shift is active or in monitoring mode
   useEffect(() => {
-    if (isHydrated && token && activeShift) {
+    if (isHydrated && token && (activeShift || monitoredShift)) {
       fetchCatalog();
       fetchDrafts();
     }
-  }, [isHydrated, token, activeShift]);
+  }, [isHydrated, token, activeShift, monitoredShift]);
+
+  // Fetch active shifts list for selection screen (for management)
+  useEffect(() => {
+    if (isHydrated && token && user && isManagementRole && !monitoredShift) {
+      fetchActiveShiftsList();
+    }
+  }, [isHydrated, token, user, monitoredShift]);
 
   const triggerAlert = useCallback((type: 'success' | 'error', text: string) => {
     setAlertMsg({ type, text });
@@ -450,6 +492,10 @@ export default function PosPage() {
   };
 
   const handleAddItem = (product: Product) => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     if (isDraftLocked) {
       triggerAlert('error', 'Keranjang terkunci (Draft dari Pramuniaga). Silakan buka kunci terlebih dahulu.');
       return;
@@ -471,6 +517,10 @@ export default function PosPage() {
   };
 
   const handleRemoveItem = (productId: number) => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     if (isDraftLocked) {
       triggerAlert('error', 'Keranjang terkunci (Draft dari Pramuniaga). Silakan buka kunci terlebih dahulu.');
       return;
@@ -482,6 +532,10 @@ export default function PosPage() {
   };
 
   const handleUpdateQuantity = (productId: number, newQty: number) => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     if (isDraftLocked) {
       triggerAlert('error', 'Keranjang terkunci (Draft dari Pramuniaga). Silakan buka kunci terlebih dahulu.');
       return;
@@ -500,6 +554,10 @@ export default function PosPage() {
   };
 
   const handlePullDraft = async (draft: OrderDraft) => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     setSubmitting(true);
     try {
       // 1. Lock the draft on server
@@ -511,7 +569,9 @@ export default function PosPage() {
 
         const itemsToLoad = (fullDraft.items || []).map((item: OrderDraftItem) => ({
           product: item.product!,
-          quantity: item.quantity
+          quantity: item.quantity,
+          customizations: (item as any).customizations,
+          customUnitPrice: parseFloat(item.unit_price)
         }));
 
         setCartItems(itemsToLoad);
@@ -566,6 +626,10 @@ export default function PosPage() {
   };
 
   const handleResetCart = () => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     setCartItems([]);
     setOrderType('dine_in');
     setTableNumber('');
@@ -594,7 +658,10 @@ export default function PosPage() {
     if (calcResult) {
       return calcResult.subtotal;
     }
-    return cartItems.reduce((sum, item) => sum + parseFloat(item.product.sell_price) * item.quantity, 0);
+    return cartItems.reduce((sum, item) => {
+      const price = item.customUnitPrice !== undefined ? item.customUnitPrice : parseFloat(item.product.sell_price);
+      return sum + price * item.quantity;
+    }, 0);
   };
 
   const getTax = () => {
@@ -620,6 +687,10 @@ export default function PosPage() {
 
   // CHECKOUT & PAYMENTS LOGIC
   const handleOpenCheckout = () => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     setPayments([]);
     setPayMethod('cash');
     setPayAmountInput(getGrandTotal().toString());
@@ -890,6 +961,10 @@ export default function PosPage() {
 
   // VOID LOGIC
   const handleOpenVoidPin = (trxId: number) => {
+    if (isMonitoringMode) {
+      triggerAlert('error', 'Tindakan dinonaktifkan dalam Mode Pemantauan.');
+      return;
+    }
     setVoidingTransactionId(trxId);
     setVoidReason('');
     setShowVoidPinModal(true);
@@ -947,6 +1022,167 @@ export default function PosPage() {
 
   if (!isHydrated || !user) return null;
 
+  if (isHydrated && token && user && isManagementRole && !monitoredShift) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+          {/* Welcome / Module Banner */}
+          <div className="relative bg-card border border-border/80 rounded-2xl p-6 lg:p-8 shadow-sm overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            {/* Glowing accent circle */}
+            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex items-center gap-4 z-10">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-extrabold text-xl shadow-inner flex-shrink-0">
+                <ShoppingCart className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+                  Pemantauan Terminal Kasir
+                </h2>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Pilih salah satu kasir yang sedang aktif bertugas hari ini untuk mulai memantau penjualan, transaksi, dan aktivitas kasir secara real-time.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 z-10">
+              <Button 
+                onClick={fetchActiveShiftsList} 
+                size="sm"
+                variant="outline"
+                className="font-bold gap-1.5 h-9 rounded-xl px-4"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Perbarui
+              </Button>
+            </div>
+          </div>
+
+          {/* Alert Message */}
+          {alertMsg && alertMsg.type === 'error' && (
+            <Alert variant="destructive" className="border-red-500/30 bg-red-950/10 text-red-600 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="font-semibold">{alertMsg.text}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Active Shift Header Indicator */}
+          {!loadingShiftsList && activeShiftsList.length > 0 && (
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Shift Kasir Berjalan</span>
+                <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/15 font-extrabold text-[10px] tracking-wide px-2.5 py-0.5 rounded-full">
+                  {activeShiftsList.length} Aktif
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Content Grid */}
+          {loadingShiftsList ? (
+            <div className="py-24 flex flex-col items-center justify-center gap-4 bg-card border border-border/80 rounded-2xl shadow-sm">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground font-semibold">Mencari shift kasir yang aktif...</p>
+            </div>
+          ) : activeShiftsList.length === 0 ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-5 bg-card border border-border border-dashed rounded-3xl p-8 text-center max-w-xl mx-auto shadow-sm">
+              <div className="p-4 bg-muted/40 rounded-2xl border border-border">
+                <Users className="w-10 h-10 text-muted-foreground/80" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-bold text-base text-foreground">Tidak Ada Shift Aktif</h3>
+                <p className="text-xs text-muted-foreground max-w-sm">Belum ada kasir yang membuka shift hari ini. Silakan minta kasir untuk melakukan pembukaan shift terlebih dahulu.</p>
+              </div>
+              <div className="flex gap-2.5 mt-4">
+                <Button 
+                  onClick={fetchActiveShiftsList} 
+                  size="sm"
+                  className="font-bold rounded-xl flex items-center gap-1.5 px-4 h-9 shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Perbarui Data
+                </Button>
+                <Button 
+                  onClick={() => router.push('/dashboard')} 
+                  size="sm"
+                  variant="outline" 
+                  className="font-bold rounded-xl px-4 h-9"
+                >
+                  Kembali ke Dashboard
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {activeShiftsList.map((shift) => {
+                  const cashierName = shift.cashier?.name || 'Kasir KEPOS';
+                  const initials = cashierName.substring(0, 2).toUpperCase();
+                  return (
+                    <div 
+                      key={shift.id}
+                      onClick={() => setMonitoredShift(shift)}
+                      className="group relative cursor-pointer rounded-2xl border border-border/80 bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-300 flex flex-col justify-between min-h-[200px]"
+                    >
+                      <div className="space-y-4">
+                        {/* Card Top: Avatar & Badges */}
+                        <div className="flex justify-between items-start">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-extrabold text-sm shadow-inner flex-shrink-0">
+                            {initials}
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5">
+                            <span className="font-mono text-[10px] font-extrabold text-primary tracking-wider bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                              {shift.shift_code}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wide">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                              Aktif
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Cashier Info */}
+                        <div className="space-y-1">
+                          <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors duration-200">
+                            {cashierName}
+                          </h3>
+                          <p className="text-xs text-muted-foreground truncate">{shift.cashier?.email || 'email@toko.com'}</p>
+                        </div>
+                      </div>
+
+                      {/* Card Bottom: Times, Opening Cash & CTA */}
+                      <div className="mt-6 pt-4 border-t border-border/60 flex flex-col gap-3.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Clock className="w-3.5 h-3.5 text-muted-foreground/80" />
+                            <span>Mulai: <strong className="text-foreground">{new Date(shift.opened_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Modal Awal</p>
+                            <p className="font-mono font-bold text-foreground">Rp {parseFloat(shift.opening_cash).toLocaleString('id-ID')}</p>
+                          </div>
+                        </div>
+
+                        <Button 
+                          className="w-full bg-primary/5 group-hover:bg-primary text-primary group-hover:text-primary-foreground font-bold text-xs h-9.5 rounded-xl border border-primary/10 group-hover:border-transparent transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <span>Mulai Memantau</span>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          )}
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
@@ -956,6 +1192,26 @@ export default function PosPage() {
             {alertMsg.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
             <AlertDescription className="font-medium text-sm">{alertMsg.text}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Monitoring Mode Banner */}
+        {isMonitoringMode && (
+          <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-6 py-2.5 text-xs font-semibold flex items-center justify-between border-b border-amber-500/20 shadow-sm animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 animate-pulse text-amber-500" />
+              <span>
+                Mode Pemantauan Aktif untuk Kasir: <strong className="text-foreground">{monitoredShift?.cashier?.name}</strong> ({monitoredShift?.shift_code})
+              </span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setMonitoredShift(null)} 
+              className="h-7 px-3 text-[10px] bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg font-bold transition-all uppercase tracking-wider"
+            >
+              Ganti Kasir
+            </Button>
+          </div>
         )}
 
         {/* Top Navbar */}
@@ -977,27 +1233,27 @@ export default function PosPage() {
               <span className="font-extrabold text-sm tracking-tight text-foreground">KEPOS Terminal</span>
               <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Point of Sale</span>
             </div>
-            {activeShift && (
+            {(activeShift || monitoredShift) && (
               <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 text-primary font-mono font-bold text-[10px] rounded-full shadow-sm select-none">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                 </span>
-                <span>{activeShift.shift_code}</span>
+                <span>{(activeShift || monitoredShift)?.shift_code}</span>
               </div>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {activeShift && (
+          {(activeShift || monitoredShift) && (
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold text-xs shadow-sm select-none">
               <Wallet className="w-3.5 h-3.5 text-emerald-550" />
-              <span>Modal: <strong className="font-mono font-bold">{formatCurrency(activeShift.opening_cash)}</strong></span>
+              <span>Modal: <strong className="font-mono font-bold">{formatCurrency((activeShift || monitoredShift)?.opening_cash || 0)}</strong></span>
             </div>
           )}
           
-          {activeShift && (
+          {(activeShift || monitoredShift) && (
             <Button
               variant="ghost"
               size="sm"
@@ -1019,7 +1275,19 @@ export default function PosPage() {
             </div>
           </div>
 
-          {activeShift && (
+          {isMonitoringMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMonitoredShift(null)}
+              className="gap-1.5 h-9 rounded-xl text-xs font-bold border-amber-500/25 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/25 transition-all duration-200 active:scale-95 shadow-sm"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Keluar Pantauan</span>
+            </Button>
+          )}
+
+          {!isMonitoringMode && activeShift && (
             <Button
               variant="outline"
               size="sm"
@@ -1031,7 +1299,7 @@ export default function PosPage() {
             </Button>
           )}
 
-          {!activeShift && (
+          {!isMonitoringMode && !activeShift && (
             <Button
               variant="destructive"
               size="sm"
@@ -1052,7 +1320,8 @@ export default function PosPage() {
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
             <span className="font-semibold text-sm">Memeriksa status shift...</span>
           </div>
-        ) : !activeShift ? (
+
+        ) : (!activeShift && !isMonitoringMode) ? (
           <div className="flex flex-col items-center justify-center py-32 gap-6">
             <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl">
               <AlertTriangle className="w-16 h-16 text-amber-500" />
@@ -1251,22 +1520,31 @@ export default function PosPage() {
                     <p className="text-[10px] text-muted-foreground mt-1 max-w-[160px] mx-auto">Scan barcode atau pilih menu di sebelah kiri.</p>
                   </div>
                 ) : (
-                  cartItems.map(item => {
+                   cartItems.map(item => {
                     const calcItem = calcResult?.items?.find((i: any) => i.product_id === item.product.id);
                     const discountAmount = calcItem ? calcItem.discount_amount : 0;
-                    const itemSubtotal = calcItem ? calcItem.subtotal : (parseFloat(item.product.sell_price) * item.quantity);
+                    const effectivePrice = item.customUnitPrice !== undefined ? item.customUnitPrice : parseFloat(item.product.sell_price);
+                    const itemSubtotal = calcItem ? calcItem.subtotal : (effectivePrice * item.quantity);
 
                     return (
                       <div key={item.product.id} className="bg-muted/40 hover:bg-muted/70 border border-border/80 rounded-xl p-3 flex justify-between gap-3 transition-colors shadow-sm" style={{ minHeight: '56px' }}>
                         <div className="flex-1 min-w-0">
                           <h5 className="font-bold text-xs text-foreground leading-normal truncate">{item.product.name}</h5>
-                          <span className="text-[9px] text-muted-foreground font-mono block">Rp {parseFloat(item.product.sell_price).toLocaleString('id-ID')} / pcs</span>
+                          {item.customizations && (
+                            <p className="text-[9px] text-zinc-500 font-semibold leading-normal mt-0.5">
+                              Size: {item.customizations.size} | Bread: {item.customizations.bread}
+                              {item.customizations.addOns && item.customizations.addOns.length > 0 && (
+                                <> | + {item.customizations.addOns.map((a: any) => a.name).join(', ')}</>
+                              )}
+                            </p>
+                          )}
+                          <span className="text-[9px] text-muted-foreground font-mono block mt-0.5">Rp {effectivePrice.toLocaleString('id-ID')} / pcs</span>
                           
                           <div className="flex items-center flex-wrap gap-1 mt-1">
                             {discountAmount > 0 ? (
                               <>
                                 <span className="line-through text-[10px] text-muted-foreground/60 font-mono">
-                                  Rp {(parseFloat(item.product.sell_price) * item.quantity).toLocaleString('id-ID')}
+                                  Rp {(effectivePrice * item.quantity).toLocaleString('id-ID')}
                                 </span>
                                 <span className="font-bold text-xs text-emerald-600 font-mono">
                                   Rp {itemSubtotal.toLocaleString('id-ID')}
@@ -1327,7 +1605,8 @@ export default function PosPage() {
               {cartItems.length > 0 && (
                 <button
                   onClick={handleResetCart}
-                  className="w-full py-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 rounded-xl text-xs font-bold transition-all active:scale-98"
+                  disabled={isMonitoringMode}
+                  className="w-full py-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 rounded-xl text-xs font-bold transition-all active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Reset / Batalkan Transaksi
                 </button>
@@ -1461,11 +1740,11 @@ export default function PosPage() {
               {/* Checkout trigger */}
               <button
                 onClick={handleOpenCheckout}
-                disabled={cartItems.length === 0}
+                disabled={cartItems.length === 0 || isMonitoringMode}
                 className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
               >
                 <DollarSign className="w-4.5 h-4.5" />
-                <span>Bayar & Selesai (Fase 5)</span>
+                <span>{isMonitoringMode ? 'Mode Pemantauan (Read-Only)' : 'Bayar & Selesai (Fase 5)'}</span>
               </button>
 
             </div>
@@ -1498,7 +1777,7 @@ export default function PosPage() {
                   {cartItems.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-xs py-1 border-b border-border/40">
                       <span className="text-muted-foreground truncate max-w-[150px]">{item.product.name}</span>
-                      <span className="font-mono text-muted-foreground">{item.quantity} x {formatCurrency(item.product.sell_price)}</span>
+                      <span className="font-mono text-muted-foreground">{item.quantity} x {formatCurrency(item.customUnitPrice !== undefined ? item.customUnitPrice : item.product.sell_price)}</span>
                     </div>
                   ))}
                 </div>
@@ -2393,8 +2672,8 @@ export default function PosPage() {
                       </div>
                       <button
                         onClick={() => handlePullDraft(draft)}
-                        disabled={submitting}
-                        className="h-10 px-4 bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                        disabled={submitting || isMonitoringMode}
+                        className="h-10 px-4 bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
                       >
                         {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         <span>Tarik Antrean</span>

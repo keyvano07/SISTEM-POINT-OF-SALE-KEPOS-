@@ -1,27 +1,37 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-interface ShiftData {
+export interface ShiftData {
   id: number;
   shift_code: string;
-  opening_cash: string;
+  opening_cash: string | number;
   status: string;
   opened_at: string;
+  cashier?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 interface ShiftState {
   activeShift: ShiftData | null;
+  monitoredShift: ShiftData | null;
+  isMonitoringMode: boolean;
   isLoading: boolean;
   error: string | null;
 
   fetchActiveShift: () => Promise<void>;
   openShift: (openingCash: number) => Promise<ShiftData>;
   closeShift: (physicalCash: number) => Promise<void>;
+  setMonitoredShift: (shift: ShiftData | null) => void;
   clearShift: () => void;
 }
 
 export const useShiftStore = create<ShiftState>((set) => ({
   activeShift: null,
+  monitoredShift: null,
+  isMonitoringMode: false,
   isLoading: false,
   error: null,
 
@@ -62,7 +72,14 @@ export const useShiftStore = create<ShiftState>((set) => ({
     }
   },
 
+  setMonitoredShift: (shift: ShiftData | null) => {
+    set({ 
+      monitoredShift: shift, 
+      isMonitoringMode: !!shift 
+    });
+  },
+
   clearShift: () => {
-    set({ activeShift: null, error: null });
+    set({ activeShift: null, monitoredShift: null, isMonitoringMode: false, error: null });
   },
 }));

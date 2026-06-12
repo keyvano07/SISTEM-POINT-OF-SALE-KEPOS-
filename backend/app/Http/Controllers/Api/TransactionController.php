@@ -177,8 +177,24 @@ class TransactionController extends Controller
                 // Verify stock availability for all items before cutting stock
                 foreach ($itemsToSell as $item) {
                     $prod = $item['product_model'];
-                    if ($prod->stock_quantity < $item['quantity']) {
-                        throw new \Exception("Stok produk '{$prod->name}' tidak mencukupi. Sisa stok: {$prod->stock_quantity}.");
+                    
+                    // Sum active kiosk reservations for this product, EXCLUDING the draft being checked out
+                    $reservedStockQuery = DB::table('order_draft_items')
+                        ->join('order_drafts', 'order_draft_items.order_draft_id', '=', 'order_drafts.id')
+                        ->where('order_draft_items.product_id', $prod->id)
+                        ->where('order_drafts.source', 'kiosk')
+                        ->where('order_drafts.status', 'pending')
+                        ->where('order_drafts.expires_at', '>', now());
+                    
+                    if ($request->order_draft_id) {
+                        $reservedStockQuery->where('order_draft_items.order_draft_id', '!=', $request->order_draft_id);
+                    }
+                    
+                    $reservedStock = $reservedStockQuery->sum('order_draft_items.quantity');
+                    $availableStock = $prod->stock_quantity - $reservedStock;
+
+                    if ($availableStock < $item['quantity']) {
+                        throw new \Exception("Stok produk '{$prod->name}' tidak mencukupi. Sisa stok tersedia: {$availableStock}.");
                     }
                 }
 

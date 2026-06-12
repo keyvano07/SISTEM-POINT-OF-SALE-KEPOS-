@@ -205,26 +205,36 @@ Modul penanganan siklus kerja harian kasir untuk pembukaan modal kas harian, inp
 graph LR
     Kasir["👤 Kasir"]
     Supervisor["👤 Supervisor"]
+    Manager["👤 Manajer Toko"]
+    SuperAdmin["👤 Super Admin / Owner"]
     
     subgraph Modul_Shift_Rekonsiliasi ["⏱️ Modul Shift & Rekonsiliasi"]
         UC_OpenShift(["Buka Shift (Input Modal Awal)"])
         UC_CloseShift(["Tutup Shift (Blind Cash Drop)"])
+        UC_MonitorShifts(["Lihat & Pilih Shift Kasir Harian"])
         UC_AuditShift(["Verifikasi & Audit Shift (Rekonsiliasi Selisih)"])
     end
     
     Kasir --> UC_OpenShift
     Kasir --> UC_CloseShift
+    Supervisor --> UC_MonitorShifts
     Supervisor --> UC_AuditShift
+    Manager --> UC_MonitorShifts
+    SuperAdmin --> UC_MonitorShifts
     
     style Modul_Shift_Rekonsiliasi fill:#F9F2FA,stroke:#BA68C8,stroke-width:1.5px;
     
     classDef staffStyle fill:#FFF8E1,stroke:#E65100,stroke-width:2px,color:#E65100,font-weight:bold;
     classDef supervisorStyle fill:#F3E5F5,stroke:#6A1B9A,stroke-width:2px,color:#6A1B9A,font-weight:bold;
+    classDef managerStyle fill:#E0F2F1,stroke:#00695C,stroke-width:2px,color:#00695C,font-weight:bold;
+    classDef adminStyle fill:#E3F2FD,stroke:#0D47A1,stroke-width:2px,color:#0D47A1,font-weight:bold;
     classDef ucStyle fill:#FFFFFF,stroke:#BA68C8,stroke-width:1.5px,color:#4A148C;
     
     class Kasir staffStyle;
     class Supervisor supervisorStyle;
-    class UC_OpenShift,UC_CloseShift,UC_AuditShift ucStyle;
+    class Manager managerStyle;
+    class SuperAdmin adminStyle;
+    class UC_OpenShift,UC_CloseShift,UC_MonitorShifts,UC_AuditShift ucStyle;
 ```
 
 ---
@@ -450,8 +460,10 @@ sequenceDiagram
    * Sistem menjalankan metode **Blind Cash Drop**: Kasir wajib menghitung uang fisik yang ada di laci (Uang Modal + Uang Hasil Penjualan Tunai) dan menginput jumlahnya secara manual ke sistem.
    * *Keamanan:* Kasir sama sekali tidak diperlihatkan angka ekspektasi sistem untuk mencegah manipulasi input agar pas.
    * Setelah input dikirim, status shift berubah menjadi `CLOSED` dan kasir otomatis log out.
-3. **Audit Verifikasi (Oleh Supervisor/Manajer):**
-   * Supervisor membuka modul *Shift Audit*.
+3. **Monitoring & Audit Verifikasi (Oleh Supervisor/Manajer/Owner):**
+   * Pihak manajemen (Supervisor, Manajer, atau Owner) membuka dashboard monitoring shift harian.
+   * Pengguna menggunakan date picker untuk memilih tanggal, lalu sistem memunculkan semua shift kasir yang aktif atau selesai pada hari itu (misal 3 kasir berbeda).
+   * Pengguna memilih salah satu kasir dari daftar untuk meninjau detail laci kas secara spesifik.
    * Sistem secara otomatis menghitung selisih menggunakan rumus:
      $$\text{Selisih} = \text{Uang Fisik di-input Kasir} - (\text{Modal Awal} + \text{Total Penjualan Tunai})$$
    * **Status Balance (Rp 0):** Rekonsiliasi sukses dan aman.

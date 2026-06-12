@@ -19,6 +19,7 @@ class OrderDraft extends Model
         'order_type',
         'table_number',
         'status',
+        'source',
         'expires_at',
     ];
 

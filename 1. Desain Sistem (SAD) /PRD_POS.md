@@ -20,6 +20,7 @@
   * Mengonfirmasi Pengaturan Sistem global (Seperti nama toko, pajak, integrasi payment gateway, dan pengaturan toko cabang lainnya).
   * Melihat laporan keuangan tingkat tinggi (Laba bersih, arus kas, margin keuntungan).
   * Mengelola akun manajer Toko dan Kasir (seperti menambah, mengedit, menghapus, memblokir, nonaktifkan).
+  * Memantau daftar shift kasir harian dan melihat rincian detail laci kas dari masing-masing kasir.
 
 #### B. Manajer Toko
 * **Tanggung Jawab:** Manajer Toko adalah penanggung jawab operasional harian di cabang tersebut.
@@ -27,6 +28,7 @@
   * Mengubah harga jual produk (berdasarkan kebijakan pusat/owner).
   * Mengelola akun karyawan di bawahnya (Supervisor, Kasir, Stocker, dll).
   * Melihat laporan penjualan, performa karyawan, dan laporan stok harian.
+  * Memantau daftar shift kasir harian dan melihat rincian detail laci kas dari masing-masing kasir.
 
 #### C. Supervisor
 * **Tanggung Jawab:** Pengawas langsung di area penjualan (floor) yang menjembatani kasir dan manajer.
@@ -34,6 +36,7 @@
   * Otorisasi Khusus (Void): Berhak menyetujui pembatalan item atau pembatalan transaksi yang terlanjur diinput oleh Kasir.
   * Membuka dan menutup shift laci kasir (pencocokan uang fisik awal/akhir).
   * Mengelola transaksi di hari itu (pemberian diskon khusus, dll).
+  * Memantau daftar shift harian kasir dan memilih kasir tertentu untuk memantau performa serta memverifikasi/mengaudit laci kas mereka.
 
 #### D. Stocker (Staff Gudang/Logistik)
 * **Tanggung Jawab:** Mengontrol arus keluar masuk barang di gudang. Orang ini tidak boleh menyentuh transaksi uang.
@@ -129,9 +132,11 @@ Alur di akhir hari atau akhir shift untuk memastikan validitas keuangan dan perf
     - Setelah input selesai, status `SHIFT-0001` berubah menjadi CLOSED dan Kasir A otomatis logout. Sistem POS di komputer tersebut kembali terkunci.
     - Kasir B datang, login, dan mengulangi proses dari poin 1 (Open Shift baru dengan ID `SHIFT-0002`).
 
-3. Alur Verifikasi & Audit (Oleh Supervisor/Manajer)
-    - Supervisor membuka modul Shift Audit.
-    - Supervisor melihat laporan per sesi shift yang sudah ditutup. Di sinilah sistem Laravel melakukan komparasi otomatis:
+3. Alur Verifikasi & Audit (Oleh Supervisor/Manajer/Owner)
+    - Supervisor, Manajer, atau Owner membuka dashboard Shift Monitoring & Audit.
+    - Pengguna dapat memilih tanggal tertentu via Date Picker untuk melihat daftar kasir yang bertugas/shift pada hari tersebut (misalnya ada 3 kasir dalam sehari).
+    - Pengguna dapat memilih salah satu kasir dari daftar untuk memantau rincian shift-nya secara spesifik.
+    - Sistem Laravel menyajikan komparasi otomatis untuk kasir yang dipilih:
 
 $$\text{Ekspektasi Sistem} = \text{Modal Awal} + \text{Total Penjualan Tunai Selama Shift}$$
 
@@ -158,3 +163,54 @@ $$\text{Ekspektasi Sistem} = \text{Modal Awal} + \text{Total Penjualan Tunai Sel
 
 7. **Kewajiban Audit Trail (Akuntabilitas Sistem):** Setiap tindakan sensitif yang mengubah nilai keuangan atau inventaris secara tidak normal (seperti Void di fase pembayaran oleh Supervisor, atau Adjust Stok di atas Rp 100.000 oleh Manajer) wajib merekam jejak digital secara permanen di database (audit_logs), meliputi: Timestamp kejadian, ID eksekutor, ID pemberi otorisasi, nama produk, dan nominal perubahan. Data ini tidak boleh bisa dihapus (Read-Only).
 
+---
+
+## Bab 2: Spesifikasi Modul Self-Service Kiosk (Self-Ordering Kiosk)
+
+### 2.1 Tujuan & Ruang Lingkup (Scope & Objective)
+Modul Self-Service Kiosk dirancang khusus untuk memotong waktu antrean di kasir fisik dengan mengizinkan pelanggan melakukan pemesanan dan kustomisasi makanan/minuman secara mandiri menggunakan mesin kiosk/tablet vertikal (portrait). Pesanan pelanggan akan tersimpan sebagai **Order Draft** dengan Queue ID unik dan barcode yang nantinya di-scan oleh kasir untuk transaksi pembayaran, atau dibayar langsung di kiosk menggunakan QRIS dinamis.
+
+---
+
+### 2.2 Alur Pengguna (User Flow)
+
+#### A. Langkah 1: Welcome & Order Type Selection
+* Layar awal menampilkan visual selamat datang interaktif ("Sentuh Layar Untuk Memulai").
+* Pelanggan memilih tipe pesanan: **Dine In** (Makan di Sini) atau **Take Away** (Bawa Pulang).
+
+#### B. Langkah 2: Katalog Menu Utama (Kiosk Catalog)
+* Menyajikan kategori produk di bagian atas atau panel kiri dalam bentuk tab visual/ikon berukuran besar.
+* Foto produk beresolusi tinggi wajib ditampilkan mendominasi kartu menu untuk menggugah selera pelanggan.
+* Setiap kartu menu menampilkan informasi nama makanan, harga dasar, estimasi kalori (opsional), dan indikator ketersediaan stok ("Habis").
+
+#### C. Langkah 3: Modal Kustomisasi (Product Customization)
+Ketika menu makanan terpilih memiliki opsi tambahan/kustomisasi, layar modal popup modern akan muncul:
+1. **Pilihan Ukuran (Size)**: Pilihan ukuran (misal: *Small*, *Medium*, *Large*) dengan pertambahan harga yang jelas secara real-time.
+2. **Pilihan Bahan Dasar (Ingredients/Modifiers)**: Jenis roti, keju, atau tingkat kemanisan/kepedasan.
+3. **Tambahan Populer (Add-Ons)**: Ekstra keju, ekstra daging, atau topping tambahan dengan checkbox interaktif (misalnya `[+] Ekstra Keju (+ Rp 3.000)`).
+4. **Paket Kombo (Combo Meals)**: Mengubah pesanan satuan menjadi paket kombo (termasuk minuman & makanan pendamping) dengan potongan harga paket otomatis.
+
+#### D. Langkah 4: Tinjauan Keranjang (Review Order)
+* Halaman ringkasan semua produk yang dipilih beserta kustomisasinya.
+* Pelanggan dapat menambah/mengurangi kuantitas secara visual di baris ringkasan.
+* Tombol aksi menonjol: **Selesaikan Pemesanan** atau **Tambah Menu Lain**.
+
+#### E. Langkah 5: Cetak Slip Draf & Barcode
+* Setelah selesai, sistem mengirimkan draf pesanan ke database backend.
+* Layar Kiosk menampilkan kode antrean (Queue ID) berukuran sangat besar.
+* Mesin Kiosk mencetak slip struk kertas berisi Queue ID dan kode barcode untuk dibawa pelanggan ke meja kasir (atau memunculkan QRIS dinamis di layar jika memilih bayar di tempat).
+
+---
+
+### 2.3 Aturan Bisnis & Batasan Fungsional (Business Rules)
+1. **Otomatisasi Kunci Stok Sementara**: Saat produk masuk ke keranjang Kiosk, sistem secara dinamis mencadangkan stok selama 15 menit. Jika dalam 15 menit draf tidak dibayar di kasir, cadangan dilepas kembali ke publik.
+2. **Kunci Kustomisasi Permanen**: Pilihan kustomisasi (roti, ukuran, topping) dikunci di tingkat draf. Kasir hanya bertugas men-scan dan memproses bayar, tidak diperkenankan mengubah kustomisasi bahan di mesin POS utama tanpa membubuhkan PIN Supervisor (untuk mencegah kecurangan kasir).
+
+---
+
+### 2.4 Panduan UI/UX Kiosk (Self-Service Design Guidelines)
+* **Touch Target**: Semua tombol interaktif minimal memiliki ukuran bidang ketukan `48px x 48px` untuk mencegah ketukan salah (fat-finger syndrome).
+* **Responsive Layout (Portrait Priority)**: Grid katalog wajib beradaptasi dengan orientasi layar potret vertikal (aspek rasio 9:16 atau 10:16) yang lazim pada mesin kiosk berdiri.
+* **Aksesibilitas Mandiri**:
+  - Menyediakan opsi **Accessibility Mode** di sudut bawah layar (tombol kontras tinggi, pembesar teks, atau voice-guidance audio).
+  - Menyediakan tombol **Batalkan Pesanan / Cancel Order** berwarna merah yang mudah dijangkau di bagian bawah halaman.

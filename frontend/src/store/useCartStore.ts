@@ -18,6 +18,7 @@ export interface Product {
   low_stock_threshold: number;
   is_active: boolean;
   is_low_stock?: boolean;
+  image_url?: string | null;
   category?: Category;
 }
 

@@ -33,6 +33,11 @@ class Product extends Model
         'is_active' => 'boolean',
     ];
 
+    protected $appends = [
+        'is_low_stock',
+        'available_stock',
+    ];
+
     /**
      * Get the store that owns the product.
      */
@@ -55,5 +60,21 @@ class Product extends Model
     public function getIsLowStockAttribute(): bool
     {
         return $this->stock_quantity <= $this->low_stock_threshold;
+    }
+
+    /**
+     * Calculate available stock by subtracting active kiosk reservations.
+     */
+    public function getAvailableStockAttribute(): int
+    {
+        $reservedStock = \Illuminate\Support\Facades\DB::table('order_draft_items')
+            ->join('order_drafts', 'order_draft_items.order_draft_id', '=', 'order_drafts.id')
+            ->where('order_draft_items.product_id', $this->id)
+            ->where('order_drafts.source', 'kiosk')
+            ->where('order_drafts.status', 'pending')
+            ->where('order_drafts.expires_at', '>', now())
+            ->sum('order_draft_items.quantity');
+
+        return max(0, $this->stock_quantity - $reservedStock);
     }
 }

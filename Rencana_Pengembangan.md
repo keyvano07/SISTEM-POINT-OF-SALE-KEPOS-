@@ -140,6 +140,16 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
     *   [x] Proteksi halaman POS Next.js: Jika status `GET /api/v1/shifts/active` adalah null, alihkan kasir ke halaman Buka Shift.
     *   [x] Buat halaman Tutup Shift (input nominal laci kasir manual). Setelah disubmit, panggil API logout dan bersihkan local storage kasir.
 
+#### Card 3: Monitoring Shift & Pilihan Kasir Harian (Supervisor/Manager/Owner)
+*   **Description:** Dashboard khusus untuk melihat daftar kasir yang bertugas pada hari tertentu, memilih kasir, dan meninjau performa shift/laporan laci kas mereka.
+*   **Checklist:**
+    *   [ ] Buat endpoint `GET /api/v1/shifts` dengan query filter `date` (default: hari ini) dan `status` untuk menarik semua shift kasir pada tanggal tersebut.
+    *   [ ] Buat endpoint `GET /api/v1/shifts/{id}` untuk memuat rincian ringkasan transaksi, expected cash, blind drop input, serta discrepancy dari shift kasir tertentu.
+    *   [ ] Buat halaman Dashboard Monitoring Shift (`src/app/dashboard/supervisor/shifts/page.tsx` atau sejenisnya) yang dapat diakses oleh Supervisor, Manager, dan Owner.
+    *   [ ] Implementasikan Date Picker di frontend untuk memilih tanggal shift yang ingin dipantau.
+    *   [ ] Tampilkan daftar kasir dalam bentuk kartu/list status shift (misal: "Budi Kasir (SHIFT-01) - Active", "Siti Kasir (SHIFT-02) - Closed", "Andi Kasir - Not Started").
+    *   [ ] Buat panel detail interaktif saat salah satu kasir diklik, menampilkan perbandingan real-time antara expected cash vs physical cash, status audit, serta log transaksi shift tersebut.
+
 ---
 
 ### 📋 LIST 5: FASE 5 - TRANSAKSI & CHECKOUT KASIR
@@ -297,4 +307,34 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
     *   [ ] Buat modal status pembayaran "Menunggu Pembayaran..." dengan status check/polling setiap 3-5 detik ke endpoint `GET /transactions/{id}/payment-status`.
     *   [ ] Tampilkan alert sukses dan lanjutkan otomatis ke struk belanja setelah pembayaran terdeteksi lunas (lunas via webhook/polling).
     *   [ ] Sediakan tombol fallback "Konfirmasi Manual / Standalone" jika pembayaran gateway macet / mati.
+
+---
+
+### 📋 LIST 10: FASE 10 - SELF-SERVICE KIOSK ORDERING
+---
+#### Card 1: API Penampung Kustomisasi & Reservasi Stok (Backend)
+*   **Description:** Endpoint penampung draf pesanan kiosk yang mendukung kustomisasi produk (modifiers/add-ons) dan sistem booking stok sementara.
+*   **Checklist:**
+    *   [ ] Migrasi/Update tabel `order_draft_items`: Tambahkan kolom `customizations` (tipe JSON) untuk menampung data ukuran, jenis roti/saus, dan add-ons pilihan pelanggan.
+    *   [ ] Buat logic reservasi stok dinamis: Saat kiosk draft dibuat, stok produk dicadangkan selama 15 menit.
+    *   [ ] Buat Scheduler (cron job) Laravel untuk otomatis melepas reservasi stok jika draf tidak diproses bayar oleh kasir dalam waktu 15 menit.
+    *   [ ] Buat endpoint `POST /api/v1/kiosk/order-drafts` untuk menerima payload pemesanan kiosk mandiri.
+
+#### Card 2: Halaman Katalog Pemesanan Mandiri (Frontend)
+*   **Description:** Desain halaman pemesanan mandiri yang dioptimalkan untuk orientasi potret vertikal (portrait 9:16/10:16) pada mesin Kiosk.
+*   **Checklist:**
+    *   [ ] Buat route khusus kiosk (`src/app/kiosk/page.tsx`).
+    *   [ ] Buat Welcome Screen interaktif ("Sentuh Layar Untuk Memulai") dengan pilihan layanan Dine-In / Take-Away.
+    *   [ ] Buat grid menu catalog berukuran besar dengan fokus visual dominan pada foto produk beresolusi tinggi.
+    *   [ ] Implementasikan header navigasi kategori berbentuk tab ikon besar yang mudah digeser di layar sentuh.
+    *   [ ] Sediakan bar menu bawah statis berisi tombol Accessibility (Aksesibilitas Kontras Tinggi/Audio), Bantuan, dan Batalkan Pesanan (Cancel Order).
+
+#### Card 3: Modal Kustomisasi Menu & Cetak Tiket Antrean (Frontend)
+*   **Description:** Panel kustomisasi menu interaktif untuk memilih ukuran, bahan, add-ons, serta halaman sukses pencetakan struk antrean draf.
+*   **Checklist:**
+    *   [ ] Buat Modal Popup Kustomisasi Menu yang interaktif saat item makanan diklik.
+    *   [ ] Tampilkan selektor ukuran produk (Small, Medium, Large) dan jenis bahan dasar (tipe radio button/pills).
+    *   [ ] Tampilkan list Add-ons populer (ekstra keju/daging/saus) menggunakan checkbox yang secara real-time mengkalkulasi kenaikan harga subtotal produk.
+    *   [ ] Hubungkan tombol "Simpan Pesanan" dengan API Kiosk Draft, lalu munculkan visual struk tiket antrean besar lengkap dengan barcode simulator dan instruksi pembayaran di kasir.
+
 

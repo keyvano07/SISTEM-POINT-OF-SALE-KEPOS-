@@ -43,9 +43,12 @@ class OrderDraftController extends Controller
         $validator = Validator::make($request->all(), [
             'order_type' => 'required|in:dine_in,take_away',
             'table_number' => 'required_if:order_type,dine_in|nullable|string|max:50',
+            'source' => 'nullable|in:pramuniaga,kiosk',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'nullable|numeric|min:0',
+            'items.*.customizations' => 'nullable|array',
         ], [
             'order_type.required' => 'Tipe pesanan harus ditentukan.',
             'order_type.in' => 'Tipe pesanan harus berupa dine_in atau take_away.',
@@ -69,12 +72,15 @@ class OrderDraftController extends Controller
 
         try {
             $user = $request->user();
-            $expiresAt = now()->addHours(2);
+            $source = $request->input('source', 'pramuniaga');
+            
+            // Kiosk drafts expire in 15 minutes, Pramuniaga drafts expire in 2 hours
+            $expiresAt = $source === 'kiosk' ? now()->addMinutes(15) : now()->addHours(2);
 
             // Generate Queue ID: Q-DDMMYY-XXXX (resets daily)
             $datePrefix = 'Q-' . now()->format('dmy') . '-';
             
-            $draft = DB::transaction(function () use ($request, $user, $expiresAt, $datePrefix) {
+            $draft = DB::transaction(function () use ($request, $user, $expiresAt, $datePrefix, $source) {
                 // Get maximum queue_id for today using lockForUpdate or similar
                 $latestDraft = OrderDraft::where('queue_id', 'like', $datePrefix . '%')
                     ->lockForUpdate()
@@ -90,29 +96,53 @@ class OrderDraftController extends Controller
                 
                 $queueId = $datePrefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
+                // Pre-check stock reservation for each item
+                foreach ($request->items as $item) {
+                    $product = Product::findOrFail($item['product_id']);
+                    
+                    // Sum active kiosk reservations for this product
+                    $reservedStock = DB::table('order_draft_items')
+                        ->join('order_drafts', 'order_draft_items.order_draft_id', '=', 'order_drafts.id')
+                        ->where('order_draft_items.product_id', $product->id)
+                        ->where('order_drafts.source', 'kiosk')
+                        ->where('order_drafts.status', 'pending')
+                        ->where('order_drafts.expires_at', '>', now())
+                        ->sum('order_draft_items.quantity');
+
+                    $availableStock = $product->stock_quantity - $reservedStock;
+
+                    if ($availableStock < $item['quantity']) {
+                        throw new \Exception("Stok produk '{$product->name}' tidak mencukupi untuk dicadangkan. Sisa stok tersedia: {$availableStock}.");
+                    }
+                }
+
                 // Create Order Draft
                 $draft = OrderDraft::create([
-                    'store_id' => $user->store_id,
-                    'created_by' => $user->id,
+                    'store_id' => $user ? $user->store_id : null,
+                    'created_by' => $user ? $user->id : 1, // Default user admin id is 1 if guest/kiosk device is not logged in
                     'queue_id' => $queueId,
                     'order_type' => $request->order_type,
                     'table_number' => $request->order_type === 'dine_in' ? $request->table_number : null,
                     'status' => 'pending',
+                    'source' => $source,
                     'expires_at' => $expiresAt,
                 ]);
 
                 // Create Order Draft Items
                 foreach ($request->items as $item) {
                     $product = Product::findOrFail($item['product_id']);
-                    $unitPrice = $product->sell_price;
+                    // Accept customized unit price if passed, otherwise default to product sell price
+                    $unitPrice = isset($item['unit_price']) ? $item['unit_price'] : $product->sell_price;
                     $quantity = $item['quantity'];
                     $subtotal = $unitPrice * $quantity;
+                    $customizations = isset($item['customizations']) ? $item['customizations'] : null;
 
                     $draft->items()->create([
                         'product_id' => $product->id,
                         'quantity' => $quantity,
                         'unit_price' => $unitPrice,
                         'subtotal' => $subtotal,
+                        'customizations' => $customizations,
                     ]);
                 }
 
