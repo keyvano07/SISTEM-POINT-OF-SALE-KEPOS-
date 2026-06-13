@@ -8,6 +8,12 @@ use App\Http\Controllers\Api\AuthController;
 Route::prefix('v1')->group(function () {
     // Public routes
     Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/owner/register-tenant', [\App\Http\Controllers\Api\TenantRegistrationController::class, 'register']);
+
+    // Public Kiosk routes (no login required for customer self-service)
+    Route::get('/kiosk/products', [\App\Http\Controllers\Api\ProductController::class, 'index']);
+    Route::get('/kiosk/categories', [\App\Http\Controllers\Api\CategoryController::class, 'index']);
+    Route::post('/kiosk/order-drafts', [\App\Http\Controllers\Api\OrderDraftController::class, 'store']);
 
     // Protected routes
     Route::middleware('auth:sanctum')->group(function () {
@@ -20,12 +26,12 @@ Route::prefix('v1')->group(function () {
 
         // Categories
         Route::get('/categories', [\App\Http\Controllers\Api\CategoryController::class, 'index']);
-        Route::post('/categories', [\App\Http\Controllers\Api\CategoryController::class, 'store'])->middleware('role:manager,super_admin');
+        Route::post('/categories', [\App\Http\Controllers\Api\CategoryController::class, 'store'])->middleware('role:owner,manager,super_admin');
 
         // Products
         Route::get('/products', [\App\Http\Controllers\Api\ProductController::class, 'index']);
-        Route::post('/products', [\App\Http\Controllers\Api\ProductController::class, 'store'])->middleware('role:manager,super_admin');
-        Route::put('/products/{id}', [\App\Http\Controllers\Api\ProductController::class, 'update'])->middleware('role:manager,super_admin');
+        Route::post('/products', [\App\Http\Controllers\Api\ProductController::class, 'store'])->middleware('role:owner,manager,super_admin');
+        Route::put('/products/{id}', [\App\Http\Controllers\Api\ProductController::class, 'update'])->middleware('role:owner,manager,super_admin');
 
         // Stock adjustments
         Route::get('/stock-adjustments', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'index']);
@@ -43,12 +49,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/order-drafts/{id}/unlock', [\App\Http\Controllers\Api\OrderDraftController::class, 'unlock']);
 
         // Shifts (Kasir)
-        Route::get('/shifts', [\App\Http\Controllers\Api\ShiftController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
+        Route::get('/shifts', [\App\Http\Controllers\Api\ShiftController::class, 'index'])->middleware('role:owner,supervisor,manager,super_admin');
         Route::get('/shifts/active', [\App\Http\Controllers\Api\ShiftController::class, 'active'])->middleware('role:kasir,supervisor,manager,super_admin');
-        Route::get('/shifts/{id}', [\App\Http\Controllers\Api\ShiftController::class, 'show'])->middleware('role:supervisor,manager,super_admin');
+        Route::get('/shifts/{id}', [\App\Http\Controllers\Api\ShiftController::class, 'show'])->middleware('role:owner,supervisor,manager,super_admin');
         Route::post('/shifts/open', [\App\Http\Controllers\Api\ShiftController::class, 'open'])->middleware('role:kasir,super_admin');
         Route::post('/shifts/close', [\App\Http\Controllers\Api\ShiftController::class, 'close'])->middleware('role:kasir,super_admin');
-        Route::post('/shifts/{id}/audit', [\App\Http\Controllers\Api\ShiftController::class, 'audit'])->middleware('role:supervisor,manager,super_admin');
+        Route::post('/shifts/{id}/audit', [\App\Http\Controllers\Api\ShiftController::class, 'audit'])->middleware('role:owner,supervisor,manager,super_admin');
 
         // Transactions (Kasir/Supervisor)
         Route::get('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
@@ -56,10 +62,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/transactions/{id}/void', [\App\Http\Controllers\Api\TransactionController::class, 'void']);
 
         // Audit Logs (Manager/Supervisor)
-        Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index'])->middleware('role:supervisor,manager,super_admin');
+        Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index'])->middleware('role:owner,supervisor,manager,super_admin');
 
         // Dashboard Stats (Manager/Supervisor/Super Admin)
-        Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats'])->middleware('role:supervisor,manager,super_admin');
+        Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats'])->middleware('role:owner,supervisor,manager,super_admin');
 
         // Members
         Route::get('/members', [\App\Http\Controllers\Api\MemberController::class, 'index']);
@@ -70,7 +76,23 @@ Route::prefix('v1')->group(function () {
         Route::get('/discounts', [\App\Http\Controllers\Api\DiscountController::class, 'index']);
         Route::get('/discounts/active', [\App\Http\Controllers\Api\DiscountController::class, 'active']);
         Route::post('/discounts/calculate', [\App\Http\Controllers\Api\DiscountController::class, 'previewCalculation']);
-        Route::post('/discounts', [\App\Http\Controllers\Api\DiscountController::class, 'store'])->middleware('role:manager,super_admin');
-        Route::delete('/discounts/{id}', [\App\Http\Controllers\Api\DiscountController::class, 'destroy'])->middleware('role:manager,super_admin');
+        Route::post('/discounts', [\App\Http\Controllers\Api\DiscountController::class, 'store'])->middleware('role:owner,manager,super_admin');
+        Route::delete('/discounts/{id}', [\App\Http\Controllers\Api\DiscountController::class, 'destroy'])->middleware('role:owner,manager,super_admin');
+
+        // Owner Management
+        Route::get('/owner/stats', [\App\Http\Controllers\Api\OwnerDashboardController::class, 'stats'])->middleware('role:owner,super_admin');
+        Route::get('/owner/users', [\App\Http\Controllers\Api\StafManagementController::class, 'index'])->middleware('role:owner,super_admin');
+        Route::post('/owner/users', [\App\Http\Controllers\Api\StafManagementController::class, 'store'])->middleware('role:owner,super_admin');
+        Route::put('/owner/users/{id}', [\App\Http\Controllers\Api\StafManagementController::class, 'update'])->middleware('role:owner,super_admin');
+        Route::delete('/owner/users/{id}', [\App\Http\Controllers\Api\StafManagementController::class, 'destroy'])->middleware('role:owner,super_admin');
+
+        // Store Management (Multi-Tenant)
+        Route::get('/owner/stores', [\App\Http\Controllers\Api\StoreController::class, 'index'])->middleware('role:owner,super_admin');
+        Route::post('/owner/stores', [\App\Http\Controllers\Api\StoreController::class, 'store'])->middleware('role:owner,super_admin');
+        Route::post('/owner/stores/switch', [\App\Http\Controllers\Api\StoreController::class, 'switchStore'])->middleware('role:owner,super_admin');
+
+        // Financial Reports
+        Route::get('/reports/financial/download', [\App\Http\Controllers\Api\FinancialReportController::class, 'download'])->middleware('role:owner,manager,super_admin');
+        Route::get('/reports/financial/summary', [\App\Http\Controllers\Api\FinancialReportController::class, 'summary'])->middleware('role:owner,manager,super_admin');
     });
 });

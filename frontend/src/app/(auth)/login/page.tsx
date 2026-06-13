@@ -47,7 +47,7 @@ export default function LoginPage() {
       setAuth(user, jwtToken);
       
       // Redirect based on role
-      if (['super_admin', 'manager', 'supervisor'].includes(user.role)) {
+      if (['super_admin', 'owner', 'manager', 'supervisor'].includes(user.role)) {
         router.push('/dashboard');
       } else if (user.role === 'pramuniaga') {
         router.push('/pramuniaga');

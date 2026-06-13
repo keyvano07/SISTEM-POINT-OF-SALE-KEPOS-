@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\ProductRecipe;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -14,7 +15,7 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Product::with('category')->orderBy('name');
+        $query = Product::with(['category', 'recipes.ingredient'])->orderBy('name');
 
         // Search by name, SKU, or Barcode
         if ($request->has('search') && !empty($request->search)) {
@@ -29,6 +30,20 @@ class ProductController extends Controller
         // Filter by Category
         if ($request->has('category_id') && !empty($request->category_id)) {
             $query->where('category_id', $request->category_id);
+        }
+
+        // Filter for POS / Sales or Kiosk: hide non-saleable / raw materials
+        // By default, if the request is from a kiosk or a cashier POS, show only finished goods for sale.
+        // If they explicitly want raw materials (e.g., stocker/management), they can pass show_all=true or product_type=raw_material.
+        if ($request->has('product_type')) {
+            $query->where('product_type', $request->product_type);
+        } elseif (!$request->boolean('show_all', false)) {
+            $query->where('product_type', 'finished_good')
+                  ->where('is_saleable', true);
+        }
+
+        if ($request->has('is_saleable')) {
+            $query->where('is_saleable', $request->boolean('is_saleable'));
         }
 
         // Optional pagination (default: all active/inactive)
@@ -76,6 +91,11 @@ class ProductController extends Controller
             'is_active' => 'nullable|boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'image_url' => 'nullable|string|max:1000',
+            'product_type' => 'nullable|in:finished_good,raw_material',
+            'is_saleable' => 'nullable|boolean',
+            'recipes' => 'nullable|array',
+            'recipes.*.ingredient_id' => 'required|exists:products,id',
+            'recipes.*.quantity' => 'required|numeric|min:0.0001',
         ], [
             'category_id.required' => 'Kategori produk harus dipilih.',
             'category_id.exists' => 'Kategori tidak valid.',
@@ -121,8 +141,22 @@ class ProductController extends Controller
             'stock_quantity' => $request->stock_quantity ?? 0,
             'low_stock_threshold' => $request->low_stock_threshold ?? 10,
             'is_active' => $request->is_active ?? true,
+            'product_type' => $request->product_type ?? 'finished_good',
+            'is_saleable' => $request->is_saleable ?? ($request->product_type === 'raw_material' ? false : true),
         ]);
 
+        if ($request->has('recipes')) {
+            foreach ($request->recipes as $recipeItem) {
+                ProductRecipe::create([
+                    'store_id' => $user->store_id,
+                    'product_id' => $product->id,
+                    'ingredient_id' => $recipeItem['ingredient_id'],
+                    'quantity' => $recipeItem['quantity'],
+                ]);
+            }
+        }
+
+        $product->load('recipes.ingredient');
         $product->append('is_low_stock');
 
         return response()->json([
@@ -166,6 +200,11 @@ class ProductController extends Controller
             'is_active' => 'nullable|boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'image_url' => 'nullable|string|max:1000',
+            'product_type' => 'nullable|in:finished_good,raw_material',
+            'is_saleable' => 'nullable|boolean',
+            'recipes' => 'nullable|array',
+            'recipes.*.ingredient_id' => 'required|exists:products,id',
+            'recipes.*.quantity' => 'required|numeric|min:0.0001',
         ], [
             'category_id.required' => 'Kategori produk harus dipilih.',
             'category_id.exists' => 'Kategori tidak valid.',
@@ -208,6 +247,8 @@ class ProductController extends Controller
             'stock_quantity' => $request->stock_quantity ?? $product->stock_quantity,
             'low_stock_threshold' => $request->low_stock_threshold ?? $product->low_stock_threshold,
             'is_active' => $request->is_active ?? $product->is_active,
+            'product_type' => $request->product_type ?? $product->product_type,
+            'is_saleable' => $request->has('is_saleable') ? $request->boolean('is_saleable') : $product->is_saleable,
         ];
 
         if ($imageUrl !== null) {
@@ -215,6 +256,18 @@ class ProductController extends Controller
         }
 
         $product->update($updateData);
+
+        if ($request->has('recipes')) {
+            ProductRecipe::where('product_id', $product->id)->delete();
+            foreach ($request->recipes as $recipeItem) {
+                ProductRecipe::create([
+                    'store_id' => $user->store_id,
+                    'product_id' => $product->id,
+                    'ingredient_id' => $recipeItem['ingredient_id'],
+                    'quantity' => $recipeItem['quantity'],
+                ]);
+            }
+        }
 
         $newSellPrice = $product->sell_price;
         $newBuyPrice = $product->buy_price;
@@ -241,6 +294,7 @@ class ProductController extends Controller
             }
         }
 
+        $product->load('recipes.ingredient');
         $product->append('is_low_stock');
 
         return response()->json([

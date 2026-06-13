@@ -33,11 +33,15 @@ class TransactionController extends Controller
     {
         $user = $request->user();
 
-        $transactions = Transaction::with(['cashier', 'items.product', 'payments'])
+        $query = Transaction::with(['cashier', 'items.product', 'payments'])
             ->where('store_id', $user->store_id)
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        if ($request->has('paginate') && $request->paginate == 'true') {
+            $transactions = $query->paginate(15);
+        } else {
+            $transactions = $query->limit(50)->get();
+        }
 
         return response()->json([
             'success' => true,
@@ -158,7 +162,7 @@ class TransactionController extends Controller
             $transaction = DB::transaction(function () use ($request, $user, $activeShift, $calc, $calculatedSubtotal, $calculatedDiscountAmount, $calculatedGrandTotal, $transactionDiscountId) {
                 // Determine items to sell based on calculations
                 $itemsToSell = [];
-                $products = Product::whereIn('id', array_column($calc['items'], 'product_id'))->get()->keyBy('id');
+                $products = Product::with('recipes.ingredient')->whereIn('id', array_column($calc['items'], 'product_id'))->get()->keyBy('id');
 
                 foreach ($calc['items'] as $itemCalc) {
                     $prod = $products[$itemCalc['product_id']];
@@ -178,23 +182,51 @@ class TransactionController extends Controller
                 foreach ($itemsToSell as $item) {
                     $prod = $item['product_model'];
                     
-                    // Sum active kiosk reservations for this product, EXCLUDING the draft being checked out
-                    $reservedStockQuery = DB::table('order_draft_items')
-                        ->join('order_drafts', 'order_draft_items.order_draft_id', '=', 'order_drafts.id')
-                        ->where('order_draft_items.product_id', $prod->id)
-                        ->where('order_drafts.source', 'kiosk')
-                        ->where('order_drafts.status', 'pending')
-                        ->where('order_drafts.expires_at', '>', now());
-                    
-                    if ($request->order_draft_id) {
-                        $reservedStockQuery->where('order_draft_items.order_draft_id', '!=', $request->order_draft_id);
-                    }
-                    
-                    $reservedStock = $reservedStockQuery->sum('order_draft_items.quantity');
-                    $availableStock = $prod->stock_quantity - $reservedStock;
+                    if ($prod->recipes && $prod->recipes->count() > 0) {
+                        // Check ingredients/raw materials stock
+                        foreach ($prod->recipes as $recipe) {
+                            $ingredient = $recipe->ingredient;
+                            if (!$ingredient) continue;
+                            
+                            $neededQty = $recipe->quantity * $item['quantity'];
 
-                    if ($availableStock < $item['quantity']) {
-                        throw new \Exception("Stok produk '{$prod->name}' tidak mencukupi. Sisa stok tersedia: {$availableStock}.");
+                            $reservedIngQuery = DB::table('order_draft_items')
+                                ->join('order_drafts', 'order_draft_items.order_draft_id', '=', 'order_drafts.id')
+                                ->where('order_draft_items.product_id', $ingredient->id)
+                                ->where('order_drafts.source', 'kiosk')
+                                ->where('order_drafts.status', 'pending')
+                                ->where('order_drafts.expires_at', '>', now());
+
+                            if ($request->order_draft_id) {
+                                $reservedIngQuery->where('order_draft_items.order_draft_id', '!=', $request->order_draft_id);
+                            }
+
+                            $reservedIngStock = $reservedIngQuery->sum('order_draft_items.quantity');
+                            $availableIngStock = $ingredient->stock_quantity - $reservedIngStock;
+
+                            if ($availableIngStock < $neededQty) {
+                                throw new \Exception("Stok bahan baku '{$ingredient->name}' tidak mencukupi untuk membuat '{$prod->name}'. Sisa stok: {$availableIngStock}, dibutuhkan: {$neededQty}.");
+                            }
+                        }
+                    } else {
+                        // Sum active kiosk reservations for this product, EXCLUDING the draft being checked out
+                        $reservedStockQuery = DB::table('order_draft_items')
+                            ->join('order_drafts', 'order_draft_items.order_draft_id', '=', 'order_drafts.id')
+                            ->where('order_draft_items.product_id', $prod->id)
+                            ->where('order_drafts.source', 'kiosk')
+                            ->where('order_drafts.status', 'pending')
+                            ->where('order_drafts.expires_at', '>', now());
+                        
+                        if ($request->order_draft_id) {
+                            $reservedStockQuery->where('order_draft_items.order_draft_id', '!=', $request->order_draft_id);
+                        }
+                        
+                        $reservedStock = $reservedStockQuery->sum('order_draft_items.quantity');
+                        $availableStock = $prod->stock_quantity - $reservedStock;
+
+                        if ($availableStock < $item['quantity']) {
+                            throw new \Exception("Stok produk '{$prod->name}' tidak mencukupi. Sisa stok tersedia: {$availableStock}.");
+                        }
                     }
                 }
 
@@ -251,15 +283,12 @@ class TransactionController extends Controller
 
                 // Create transaction items, cut stock and record stock movements
                 foreach ($itemsToSell as $item) {
+                    /** @var Product $prod */
                     $prod = $item['product_model'];
                     $qtyBefore = $prod->stock_quantity;
                     $qtyAfter = $qtyBefore - $item['quantity'];
 
-                    // Cut stock
-                    $prod->stock_quantity = $qtyAfter;
-                    $prod->save();
-
-                    // Create transaction item record
+                    // Create transaction item record first
                     $trxItem = TransactionItem::create([
                         'transaction_id' => $transaction->id,
                         'product_id' => $item['product_id'],
@@ -271,18 +300,50 @@ class TransactionController extends Controller
                         'subtotal' => $item['subtotal'],
                     ]);
 
-                    // Write stock movement log
-                    StockMovement::create([
-                        'store_id' => $user->store_id,
-                        'product_id' => $prod->id,
-                        'user_id' => $user->id,
-                        'type' => 'sale',
-                        'quantity_before' => $qtyBefore,
-                        'quantity_change' => -$item['quantity'],
-                        'quantity_after' => $qtyAfter,
-                        'reference_id' => $trxItem->id,
-                        'reference_type' => TransactionItem::class,
-                    ]);
+                    if ($prod->recipes && $prod->recipes->count() > 0) {
+                        // Cut stock for each ingredient in the recipe
+                        foreach ($prod->recipes as $recipe) {
+                            $ingredient = $recipe->ingredient;
+                            if (!$ingredient) continue;
+
+                            $ingQtyBefore = $ingredient->stock_quantity;
+                            $change = $recipe->quantity * $item['quantity'];
+                            $ingQtyAfter = $ingQtyBefore - $change;
+
+                            $ingredient->stock_quantity = $ingQtyAfter;
+                            $ingredient->save();
+
+                            // Write stock movement log for the ingredient
+                            StockMovement::create([
+                                'store_id' => $user->store_id,
+                                'product_id' => $ingredient->id,
+                                'user_id' => $user->id,
+                                'type' => 'sale',
+                                'quantity_before' => $ingQtyBefore,
+                                'quantity_change' => -$change,
+                                'quantity_after' => $ingQtyAfter,
+                                'reference_id' => $trxItem->id,
+                                'reference_type' => TransactionItem::class,
+                            ]);
+                        }
+                    } else {
+                        // Cut stock for the finished good itself
+                        $prod->stock_quantity = $qtyAfter;
+                        $prod->save();
+
+                        // Write stock movement log for the finished good
+                        StockMovement::create([
+                            'store_id' => $user->store_id,
+                            'product_id' => $prod->id,
+                            'user_id' => $user->id,
+                            'type' => 'sale',
+                            'quantity_before' => $qtyBefore,
+                            'quantity_change' => -$item['quantity'],
+                            'quantity_after' => $qtyAfter,
+                            'reference_id' => $trxItem->id,
+                            'reference_type' => TransactionItem::class,
+                        ]);
+                    }
                 }
 
                 // Save Payments details
@@ -365,7 +426,7 @@ class TransactionController extends Controller
             }
 
             // Verify supervisor/manager PIN
-            $authorizedUsers = User::whereIn('role', ['super_admin', 'manager', 'supervisor'])
+            $authorizedUsers = User::whereIn('role', ['super_admin', 'owner', 'manager', 'supervisor'])
                 ->where('is_active', true)
                 ->whereNotNull('pin')
                 ->get();

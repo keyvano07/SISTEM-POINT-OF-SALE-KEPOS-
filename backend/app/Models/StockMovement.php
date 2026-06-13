@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
+use App\Traits\BelongsToTenant;
+
 class StockMovement extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     // Only keep created_at, disable updated_at
     const UPDATED_AT = null;

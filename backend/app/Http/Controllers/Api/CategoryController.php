@@ -9,12 +9,15 @@ use Illuminate\Support\Facades\Validator;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the categories.
-     */
     public function index(Request $request)
     {
-        $categories = Category::withCount('products')->orderBy('name')->get();
+        $query = Category::withCount('products')->orderBy('name');
+
+        if ($request->has('paginate') && $request->paginate == 'true') {
+            $categories = $query->paginate(15);
+        } else {
+            $categories = $query->get();
+        }
 
         return response()->json([
             'success' => true,
@@ -28,9 +31,9 @@ class CategoryController extends Controller
      */
     public function store(Request $request)
     {
-        // Manager only access validation inside controller or via middleware
+        // Manager and Owner access validation inside controller or via middleware
         $user = $request->user();
-        if (!in_array($user->role, ['super_admin', 'manager'])) {
+        if (!in_array($user->role, ['super_admin', 'owner', 'manager'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk membuat kategori.'

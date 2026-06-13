@@ -214,3 +214,39 @@ Ketika menu makanan terpilih memiliki opsi tambahan/kustomisasi, layar modal pop
 * **Aksesibilitas Mandiri**:
   - Menyediakan opsi **Accessibility Mode** di sudut bawah layar (tombol kontras tinggi, pembesar teks, atau voice-guidance audio).
   - Menyediakan tombol **Batalkan Pesanan / Cancel Order** berwarna merah yang mudah dijangkau di bagian bawah halaman.
+
+---
+
+## Bab 3: Kebutuhan Pengembangan Tahap Lanjut (Future Backlog Requirements)
+
+Bab ini merinci kebutuhan fungsional tambahan untuk pengembangan sistem POS tingkat lanjut guna mendukung ekspansi bisnis, efisiensi pengelolaan, dan skalabilitas sistem.
+
+### 3.1 Dukungan Banyak Toko (Multi-Tenant POS Application)
+Sistem harus dikembangkan untuk bertransisi menjadi aplikasi multi-tenant SaaS (Software as a Service) atau multi-cabang terisolasi penuh:
+1. **Isolasi Data (Data Isolation):** Seluruh data transaksi, produk, member, dan pengguna harus terisolasi per tenant/toko berdasarkan `store_id` (menggunakan Tenant Scope di backend).
+2. **Identifikasi Tenant (Tenant Identification):** Akses masuk ke sistem diidentifikasi melalui subdomain khusus (misal: `toko-a.kepos.id`) atau memasukkan kode unik toko saat masuk sistem pertama kali.
+3. **Pendaftaran Toko Baru (Onboarding):** Menyediakan mekanisme bagi pendaftaran tenant/toko baru secara mandiri.
+
+### 3.2 Manajemen Stok Bahan Baku (Raw Material / Non-Saleable Stock)
+Untuk mengontrol stok operasional yang bukan merupakan produk akhir siap saji:
+1. **Identifikasi Produk:** Setiap item di inventori memiliki flag `is_saleable` (dapat dijual) atau bertipe `raw_material` (bahan baku).
+2. **Pengecualian menu kasir & kiosk:** Barang bertipe bahan baku tidak boleh dimuat dalam API penjualan kasir/kiosk dan dilarang muncul di keranjang belanja.
+3. **Pencatatan Stok Gudang:** Stocker dapat melakukan restock, adjustment, dan stock opname bahan baku menggunakan modul gudang khusus dengan pencatatan log `stock_movements` yang terpisah.
+
+### 3.3 Pembuatan & Pemantauan Akun oleh Owner (Owner Account Control)
+Menambahkan peran (role) tertinggi `owner` sebagai pemilik akun tenant:
+1. **Registrasi Akun Mandiri:** Owner dapat membuat akun manajer toko, supervisor, kasir, dan stocker secara mandiri tanpa bantuan developer/administrator sistem.
+2. **Pemantauan Real-time (Owner Dashboard):** Menyediakan ringkasan pendapatan harian dari seluruh kasir, log aktivitas sensitif, dan status operasional (buka/tutup shift) secara live.
+3. **Manajemen Cabang:** Owner memiliki wewenang untuk menambah cabang toko baru dan menugaskan manajer ke cabang tersebut.
+
+### 3.4 Pagination Sistem Global (Global Server-Side Pagination)
+Demi menjaga performa sistem pada volume data yang besar:
+1. **Server-Side Rendering:** Seluruh data tabular (produk, riwayat transaksi, audit log, shift kasir) tidak boleh dimuat sekaligus, melainkan menggunakan pembagian per halaman (pagination) di tingkat database backend.
+2. **Standardisasi API:** Parameter request wajib menyertakan parameter `page` dan `limit`. Response menyertakan meta informasi halaman (`current_page`, `last_page`, `per_page`, `total`).
+3. **Kontrol Interaktif di UI:** Halaman dashboard frontend Next.js wajib menampilkan kontrol pagination yang interaktif (First, Prev, Page Number, Next, Last) dengan URL query state.
+
+### 3.5 Laporan Keuangan Format PDF (Sales & Purchase PDF Reports)
+Penyediaan laporan tertulis profesional yang siap unduh dan cetak:
+1. **Laporan Penjualan (Sales Report):** Menyajikan total transaksi, subtotal, diskon, pajak, grand total, profit kotor, dan rincian metode pembayaran dalam rentang tanggal tertentu.
+2. **Laporan Pembelian (Purchase Report):** Menyajikan rekapitulasi pengeluaran restock barang masuk dari supplier beserta status finansialnya.
+3. **Format Dokumen:** Laporan diekspor dalam format dokumen PDF standar, bersih, responsif, dan menyertakan kop nama serta logo toko.

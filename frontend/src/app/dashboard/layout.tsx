@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/services/api';
 import { 
   LayoutDashboard, Package, Clipboard, LogOut, ChevronLeft, ChevronRight, 
-  ShoppingCart, UserCheck, ShieldCheck, Tag, Users
+  ShoppingCart, UserCheck, ShieldCheck, Tag, Users, UserCog, FileText, Landmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -54,49 +54,67 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
-      roles: ['super_admin', 'manager', 'supervisor', 'kasir', 'pramuniaga', 'stocker']
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'kasir', 'pramuniaga', 'stocker']
+    },
+    {
+      name: 'Manajemen Staf',
+      path: '/dashboard/owner/staf',
+      icon: UserCog,
+      roles: ['super_admin', 'owner']
+    },
+    {
+      name: 'Laporan Keuangan',
+      path: '/dashboard/owner/reports',
+      icon: FileText,
+      roles: ['super_admin', 'owner']
+    },
+    {
+      name: 'Manajemen Toko',
+      path: '/dashboard/owner/stores',
+      icon: Landmark,
+      roles: ['super_admin', 'owner']
     },
     {
       name: 'Manajemen Inventori',
       path: '/dashboard/manager/products',
       icon: Package,
-      roles: ['super_admin', 'manager']
+      roles: ['super_admin', 'owner', 'manager']
     },
     {
       name: 'Promo Diskon',
       path: '/dashboard/manager/discounts',
       icon: Tag,
-      roles: ['super_admin', 'manager']
+      roles: ['super_admin', 'owner', 'manager']
     },
     {
       name: 'Manajemen Member',
       path: '/dashboard/manager/members',
       icon: Users,
-      roles: ['super_admin', 'manager', 'supervisor']
+      roles: ['super_admin', 'owner', 'manager', 'supervisor']
     },
     {
       name: 'Gudang & Logistik',
       path: '/dashboard/stocker',
       icon: Clipboard,
-      roles: ['super_admin', 'manager', 'supervisor', 'stocker']
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'stocker']
     },
     {
       name: 'Point of Sale (Kasir)',
       path: '/pos',
       icon: ShoppingCart,
-      roles: ['super_admin', 'manager', 'supervisor', 'kasir']
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'kasir']
     },
     {
       name: 'Draft Order',
       path: '/pramuniaga',
       icon: UserCheck,
-      roles: ['super_admin', 'manager', 'supervisor', 'pramuniaga']
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'pramuniaga']
     },
     {
       name: 'Audit & Rekonsiliasi',
       path: '/dashboard/supervisor/audit',
       icon: ShieldCheck,
-      roles: ['super_admin', 'manager', 'supervisor']
+      roles: ['super_admin', 'owner', 'manager', 'supervisor']
     }
   ];
 

@@ -15,19 +15,23 @@ class AuditLogController extends Controller
     {
         $user = $request->user();
 
-        // Only manager, supervisor or super_admin can read audit logs
-        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+        // Only owner, manager, supervisor or super_admin can read audit logs
+        if (!in_array($user->role, ['owner', 'manager', 'supervisor', 'super_admin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk membaca log audit.'
             ], 403);
         }
 
-        $logs = AuditLog::with(['executor', 'authorizer'])
+        $query = AuditLog::with(['executor', 'authorizer'])
             ->where('store_id', $user->store_id)
-            ->orderBy('created_at', 'desc')
-            ->limit(100)
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        if ($request->has('paginate') && $request->paginate == 'true') {
+            $logs = $query->paginate(20);
+        } else {
+            $logs = $query->limit(100)->get();
+        }
 
         return response()->json([
             'success' => true,

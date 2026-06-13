@@ -77,8 +77,8 @@ class AuthController extends Controller
             'pin' => 'required|string|size:6',
         ]);
 
-        // Find active users with role super_admin, manager, or supervisor who have a PIN set
-        $authorizedUsers = User::whereIn('role', ['super_admin', 'manager', 'supervisor'])
+        // Find active users with role super_admin, owner, manager, or supervisor who have a PIN set
+        $authorizedUsers = User::whereIn('role', ['super_admin', 'owner', 'manager', 'supervisor'])
             ->where('is_active', true)
             ->whereNotNull('pin')
             ->get();

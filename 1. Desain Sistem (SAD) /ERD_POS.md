@@ -52,7 +52,7 @@ erDiagram
         string email UK
         string password
         string pin
-        enum role "super_admin|manager|supervisor|kasir|pramuniaga|stocker"
+        enum role "owner|super_admin|manager|supervisor|kasir|pramuniaga|stocker"
         boolean is_active
         timestamp created_at
         timestamp updated_at
@@ -63,7 +63,7 @@ erDiagram
 
 **Penjelasan:**
 - **`stores`** — Data toko/cabang. Field `settings` (JSON) menyimpan konfigurasi global (nama toko, pajak, integrasi payment gateway). Kolom `store_id` disiapkan di semua tabel agar siap multi-cabang.
-- **`users`** — Semua aktor dalam satu tabel dengan pembeda kolom `role` (enum: `super_admin`, `manager`, `supervisor`, `kasir`, `pramuniaga`, `stocker`). Field `pin` digunakan untuk otorisasi Supervisor & Manajer saat Void atau Approve Stock Adjustment.
+- **`users`** — Semua aktor dalam satu tabel dengan pembeda kolom `role` (enum: `owner`, `super_admin`, `manager`, `supervisor`, `kasir`, `pramuniaga`, `stocker`). Field `pin` digunakan untuk otorisasi Supervisor & Manajer saat Void atau Approve Stock Adjustment.
 
 ---
 
@@ -93,6 +93,7 @@ erDiagram
         decimal sell_price
         int stock_quantity
         int low_stock_threshold
+        boolean is_saleable
         boolean is_active
         timestamp created_at
         timestamp updated_at
@@ -132,7 +133,7 @@ erDiagram
 ```
 
 **Penjelasan:**
-- **`products`** — Master produk dengan `sku` dan `barcode` unik (validasi backend Laravel). `sell_price` hanya bisa diubah oleh Manager/Owner (enforced via RBAC middleware).
+- **`products`** — Master produk dengan `sku` dan `barcode` unik (validasi backend Laravel). `sell_price` hanya bisa diubah oleh Manager/Owner (enforced via RBAC middleware). Kolom `is_saleable` (default true) digunakan untuk mengidentifikasi apakah produk dijual langsung atau bertindak sebagai bahan baku non-saleable.
 - **`stock_adjustments`** — Pengajuan adjust stok oleh Stocker. Jika `financial_value > 100000`, kolom `status` otomatis diset `pending_approval` oleh backend. Manager meng-approve via PIN → `approved_by` dan `approved_at` terisi.
 - **`stock_movements`** — Log **immutable** (Read-Only) setiap pergerakan stok. Polymorphic `reference_id` + `reference_type` menunjuk ke sumber pergerakan (misal: `transaction_items`, `stock_adjustments`, dll).
 
@@ -402,6 +403,13 @@ erDiagram
 - [ ] Audit Trail immutable (Read-Only, no DELETE/UPDATE API)
 - [ ] Polymorphic logging (void, adjust, price change)
 
+### Future Backlog Features (Rencana Pengembangan Lebih Lanjut)
+- [ ] Multi-Tenant / Multi-Store (Isolasi data toko/tenant mandiri)
+- [ ] Pengelolaan Stok Bahan Baku (`is_saleable` = false, dikecualikan dari menu POS)
+- [ ] Akun & Monitoring Owner (Pembuatan tenant, monitoring performa multi-toko)
+- [ ] Pagination Global server-side di seluruh tabel/halaman data
+- [ ] Laporan Keuangan Penjualan & Pembelian format PDF
+
 ---
 
 ## 5. Product Backlog (Prioritas)
@@ -448,6 +456,16 @@ erDiagram
 | 26 | Price change history & approval workflow | Inventory | Sprint 7+ |
 | 27 | Dashboard analytics (grafik penjualan, trend) | Core | Sprint 7+ |
 | 28 | Payment Gateway integration (Midtrans/Xendit) | Transaction | Sprint 7+ |
+
+### 🔵 Priority 4 — Future Phase (Backlog Rencana Pengembangan)
+
+| # | Backlog Item | Cluster | Sprint | Keterangan |
+|---|---|---|---|---|
+| 29 | Multi-Tenant (Banyak Toko / Cabang Terisolasi) | Core | Sprint 8+ | Sistem multi-tenant lengkap dengan domain/subdomain routing dan isolasi data per toko |
+| 30 | Stok Bahan Baku (Non-Saleable Stock) | Inventory | Sprint 8+ | Manajemen inventori bahan baku produksi yang dikecualikan dari menu kasir/kiosk |
+| 31 | Registrasi & Pemantauan Akun oleh Owner | Core | Sprint 8+ | Dashboard khusus Owner untuk registrasi toko baru, pendaftaran karyawan, dan audit real-time |
+| 32 | Pagination Global | Core / UX | Sprint 8+ | Pagination server-side pada seluruh tabel data di frontend dan endpoint API backend |
+| 33 | Laporan Keuangan Penjualan & Pembelian (PDF) | Core | Sprint 8+ | Generator laporan PDF untuk arus kas, rekapitulasi penjualan, dan retur/restock barang |
 
 ---
 

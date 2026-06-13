@@ -21,6 +21,8 @@ interface Product {
   description: string | null; image_url: string | null; buy_price: string; sell_price: string;
   stock_quantity: number; low_stock_threshold: number; is_active: boolean;
   is_low_stock: boolean; category?: Category;
+  product_type?: string;
+  is_saleable?: boolean;
 }
 
 export default function ProductManagementPage() {
@@ -32,13 +34,22 @@ export default function ProductManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  const [filterProductType, setFilterProductType] = useState(''); // '': finished_good, 'raw_material': raw, 'all': all
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     category_id: '', sku: '', barcode: '', name: '', description: '',
-    buy_price: '', sell_price: '', stock_quantity: '0', low_stock_threshold: '10', is_active: true
+    buy_price: '', sell_price: '', stock_quantity: '0', low_stock_threshold: '10', is_active: true,
+    product_type: 'finished_good' as 'finished_good' | 'raw_material',
+    is_saleable: true
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -47,18 +58,36 @@ export default function ProductManagementPage() {
 
   useEffect(() => {
     if (token) {
-      if (user && !['super_admin', 'manager'].includes(user.role)) { router.push('/dashboard'); return; }
+      if (user && !['super_admin', 'owner', 'manager'].includes(user.role)) { router.push('/dashboard'); return; }
       fetchData();
     }
-  }, [token, user, router]);
+  }, [token, user, router, filterProductType]);
 
   const fetchData = async () => {
     setLoading(true); setError(null);
     try {
-      const [prodRes, catRes] = await Promise.all([api.get('/products'), api.get('/categories')]);
-      setProducts(prodRes.data.data); setCategories(catRes.data.data);
-    } catch (err) { console.error(err); setError('Gagal memuat data inventori dari server.'); }
-    finally { setLoading(false); }
+      const params: any = {};
+      if (filterProductType === 'raw_material') {
+        params.product_type = 'raw_material';
+        params.show_all = 'true';
+      } else if (filterProductType === 'all') {
+        params.show_all = 'true';
+      } else {
+        params.product_type = 'finished_good';
+      }
+
+      const [prodRes, catRes] = await Promise.all([
+        api.get('/products', { params }), 
+        api.get('/categories')
+      ]);
+      setProducts(prodRes.data.data); 
+      setCategories(catRes.data.data);
+    } catch (err) { 
+      console.error(err); 
+      setError('Gagal memuat data inventori dari server.'); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const triggerAlert = (type: 'success' | 'error', text: string) => {
@@ -73,8 +102,11 @@ export default function ProductManagementPage() {
   });
 
   const handleOpenAddModal = () => {
-    setFormData({ category_id: categories[0]?.id.toString() || '', sku: '', barcode: '', name: '', description: '',
-      buy_price: '', sell_price: '', stock_quantity: '0', low_stock_threshold: '10', is_active: true });
+    setFormData({ 
+      category_id: categories[0]?.id.toString() || '', sku: '', barcode: '', name: '', description: '',
+      buy_price: '', sell_price: '', stock_quantity: '0', low_stock_threshold: '10', is_active: true,
+      product_type: 'finished_good', is_saleable: true 
+    });
     setImageFile(null);
     setImageUrlInput('');
     setIsAddModalOpen(true);
@@ -87,7 +119,9 @@ export default function ProductManagementPage() {
       name: product.name, description: product.description || '',
       buy_price: parseFloat(product.buy_price).toString(), sell_price: parseFloat(product.sell_price).toString(),
       stock_quantity: product.stock_quantity.toString(), low_stock_threshold: product.low_stock_threshold.toString(),
-      is_active: product.is_active
+      is_active: product.is_active,
+      product_type: (product as any).product_type || 'finished_good',
+      is_saleable: (product as any).is_saleable ?? true
     });
     setImageFile(null);
     setImageUrlInput(product.image_url || '');
@@ -108,6 +142,8 @@ export default function ProductManagementPage() {
       data.append('stock_quantity', formData.stock_quantity);
       data.append('low_stock_threshold', formData.low_stock_threshold);
       data.append('is_active', formData.is_active ? '1' : '0');
+      data.append('product_type', formData.product_type);
+      data.append('is_saleable', formData.is_saleable ? '1' : '0');
       
       if (imageFile) {
         data.append('image', imageFile);
@@ -139,6 +175,8 @@ export default function ProductManagementPage() {
       data.append('stock_quantity', formData.stock_quantity);
       data.append('low_stock_threshold', formData.low_stock_threshold);
       data.append('is_active', formData.is_active ? '1' : '0');
+      data.append('product_type', formData.product_type);
+      data.append('is_saleable', formData.is_saleable ? '1' : '0');
       
       if (imageFile) {
         data.append('image', imageFile);
@@ -202,6 +240,38 @@ export default function ProductManagementPage() {
             onChange={(e) => setFormData({...formData, low_stock_threshold: e.target.value})} />
         </div>
       </div>
+      
+      <div className="grid grid-cols-2 gap-4 border-y border-border/40 py-2">
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold font-bold">Tipe Produk</Label>
+          <select 
+            value={formData.product_type} 
+            onChange={(e) => {
+              const val = e.target.value as 'finished_good' | 'raw_material';
+              setFormData({
+                ...formData, 
+                product_type: val,
+                is_saleable: val === 'raw_material' ? false : true
+              });
+            }}
+            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="finished_good">Barang Jadi (Finished Good)</option>
+            <option value="raw_material">Bahan Baku (Raw Material)</option>
+          </select>
+        </div>
+        <div className="space-y-2 flex items-center pt-7">
+          <input 
+            type="checkbox" 
+            id="isSaleable" 
+            checked={formData.is_saleable}
+            onChange={(e) => setFormData({...formData, is_saleable: e.target.checked})}
+            className="w-4 h-4 rounded accent-primary cursor-pointer" 
+          />
+          <Label htmlFor="isSaleable" className="ml-2 text-sm cursor-pointer font-bold">Dapat Dijual (Saleable)</Label>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Harga Pokok (Beli)</Label>
@@ -279,6 +349,12 @@ export default function ProductManagementPage() {
     </div>
   );
 
+  const itemsPerPage = 10;
+  const indexOfLastProduct = currentPage * itemsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
@@ -339,11 +415,19 @@ export default function ProductManagementPage() {
               <Input placeholder="Cari SKU, Barcode, atau nama produk..." value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
-            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-              className="flex h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full md:w-48">
-              <option value="">Semua Kategori</option>
-              {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
-            </select>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <select value={filterProductType} onChange={(e) => setFilterProductType(e.target.value)}
+                className="flex h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-48">
+                <option value="">Barang Jadi (Finished Good)</option>
+                <option value="raw_material">Bahan Baku (Raw Material)</option>
+                <option value="all">Semua Tipe Produk</option>
+              </select>
+              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
+                className="flex h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-48">
+                <option value="">Semua Kategori</option>
+                {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+              </select>
+            </div>
           </div>
 
           {loading ? (
@@ -359,13 +443,15 @@ export default function ProductManagementPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead>SKU / Barcode</TableHead><TableHead>Nama Produk</TableHead>
-                  <TableHead>Kategori</TableHead><TableHead className="text-right">Harga Beli</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead className="text-center">Tipe</TableHead>
+                  <TableHead className="text-right">Harga Beli</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead><TableHead className="text-center">Stok</TableHead>
                   <TableHead className="text-center">Status</TableHead><TableHead className="text-center">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map(product => (
+                {currentProducts.map(product => (
                   <TableRow key={product.id}>
                     <TableCell className="font-mono text-xs">
                       <span className="block font-semibold">{product.sku}</span>
@@ -387,6 +473,13 @@ export default function ProductManagementPage() {
                       </div>
                     </TableCell>
                     <TableCell><Badge variant="secondary">{product.category?.name || 'Uncategorized'}</Badge></TableCell>
+                    <TableCell className="text-center">
+                      {product.product_type === 'raw_material' ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-none font-semibold uppercase text-[10px]">Bahan Baku</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-none font-semibold uppercase text-[10px]">Barang Jadi</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
                       Rp {parseFloat(product.buy_price).toLocaleString('id-ID')}
                     </TableCell>
@@ -415,6 +508,34 @@ export default function ProductManagementPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+
+          {filteredProducts.length > itemsPerPage && (
+            <div className="flex items-center justify-between pt-4 border-t border-border/60">
+              <span className="text-xs text-muted-foreground font-semibold">
+                Menampilkan {indexOfFirstProduct + 1}-{Math.min(indexOfLastProduct, filteredProducts.length)} dari {filteredProducts.length} produk
+              </span>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  className="font-bold text-xs"
+                >
+                  Sebelumnya
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  className="font-bold text-xs"
+                >
+                  Berikutnya
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

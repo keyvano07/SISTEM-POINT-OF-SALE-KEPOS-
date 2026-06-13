@@ -5,32 +5,36 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 use App\Traits\BelongsToTenant;
 
-class Category extends Model
+class ProductRecipe extends Model
 {
     use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'store_id',
-        'name',
+        'product_id',
+        'ingredient_id',
+        'quantity',
     ];
 
-    /**
-     * Get the store that owns the category.
-     */
+    protected $casts = [
+        'quantity' => 'decimal:4',
+    ];
+
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
-    /**
-     * Get the products for the category.
-     */
-    public function products(): HasMany
+    public function product(): BelongsTo
     {
-        return $this->hasMany(Product::class);
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function ingredient(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'ingredient_id');
     }
 }

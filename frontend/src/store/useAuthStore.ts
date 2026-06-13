@@ -5,7 +5,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: 'super_admin' | 'manager' | 'supervisor' | 'kasir' | 'pramuniaga' | 'stocker';
+  role: 'super_admin' | 'owner' | 'manager' | 'supervisor' | 'kasir' | 'pramuniaga' | 'stocker';
   store_id: number;
 }
 

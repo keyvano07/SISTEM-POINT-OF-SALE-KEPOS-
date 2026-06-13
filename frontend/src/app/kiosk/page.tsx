@@ -66,8 +66,8 @@ export default function KioskPage() {
   const router = useRouter();
   const { user, token } = useAuthStore();
 
-  // Mode Tampilan: 'kiosk' (Vertikal 9:16) atau 'tablet' (Horizontal Landscape)
-  const [viewMode, setViewMode] = useState<'kiosk' | 'tablet'>('kiosk');
+  // Mode Tampilan: 'hp' (Vertikal 9:16) atau 'tablet' (Horizontal Landscape)
+  const [viewMode, setViewMode] = useState<'hp' | 'tablet'>('hp');
 
   // Kiosk Session State
   const [sessionActive, setSessionActive] = useState(false);
@@ -103,20 +103,15 @@ export default function KioskPage() {
   const [successDraft, setSuccessDraft] = useState<CreatedDraft | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Check login
-  useEffect(() => {
-    if (!token) {
-      router.push('/login');
-    }
-  }, [token, router]);
+  // Kiosk does not require auth, so check login useEffect is removed
 
   // Load Products & Categories
   const loadCatalog = async () => {
     try {
       setLoading(true);
       const [prodRes, catRes] = await Promise.all([
-        api.get('/products'),
-        api.get('/categories')
+        api.get('/kiosk/products'),
+        api.get('/kiosk/categories')
       ]);
 
       if (prodRes.data.success) {
@@ -134,10 +129,8 @@ export default function KioskPage() {
   };
 
   useEffect(() => {
-    if (token) {
-      loadCatalog();
-    }
-  }, [token]);
+    loadCatalog();
+  }, []);
 
   // Reset Session
   const handleCancelSession = () => {
@@ -277,7 +270,7 @@ export default function KioskPage() {
         }
       }));
 
-      const response = await api.post('/order-drafts', {
+      const response = await api.post('/kiosk/order-drafts', {
         order_type: orderType,
         table_number: orderType === 'dine_in' ? tableNumber : null,
         source: 'kiosk',
@@ -307,24 +300,24 @@ export default function KioskPage() {
 
   // Toggle View Mode Floating Settings
   const renderModeToggle = () => (
-    <div className="fixed top-4 right-4 z-50 flex items-center bg-white/95 dark:bg-zinc-900/95 border border-border shadow-lg p-1.5 rounded-full backdrop-blur-sm transition-all hover:scale-105">
+    <div className="fixed top-4 right-4 z-50 flex items-center bg-zinc-900/95 border border-zinc-800 shadow-xl p-1.5 rounded-full backdrop-blur-sm transition-all hover:scale-105">
       <Button 
-        variant={viewMode === 'kiosk' ? 'default' : 'ghost'} 
+        variant={viewMode === 'hp' ? 'default' : 'ghost'} 
         size="sm"
-        className="rounded-full h-8 px-3 font-bold text-xs gap-1.5 flex"
-        onClick={() => setViewMode('kiosk')}
+        className={`rounded-full h-8 px-3 font-bold text-xs gap-1.5 flex ${viewMode === 'hp' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+        onClick={() => setViewMode('hp')}
       >
         <Monitor className="w-3.5 h-3.5" />
-        Kiosk (Vertikal)
+        Tampilan HP
       </Button>
       <Button 
         variant={viewMode === 'tablet' ? 'default' : 'ghost'} 
         size="sm"
-        className="rounded-full h-8 px-3 font-bold text-xs gap-1.5 flex"
+        className={`rounded-full h-8 px-3 font-bold text-xs gap-1.5 flex ${viewMode === 'tablet' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
         onClick={() => setViewMode('tablet')}
       >
         <TabletIcon className="w-3.5 h-3.5" />
-        Tablet (Horizontal)
+        Tampilan Tablet
       </Button>
     </div>
   );
@@ -415,12 +408,12 @@ export default function KioskPage() {
   const renderCustomizationModal = () => (
     customizeProduct && (
       <Dialog open={true} onOpenChange={() => setCustomizeProduct(null)}>
-        <DialogContent className="max-w-md p-6 bg-white dark:bg-zinc-950 rounded-3xl border border-border text-foreground">
+        <DialogContent className="max-w-md p-6 bg-slate-900 rounded-3xl border border-zinc-800 text-white shadow-2xl">
           <DialogTitle className="hidden">Customize Product</DialogTitle>
           <DialogDescription className="hidden">Customize Product Description</DialogDescription>
           <div className="space-y-5">
             <div className="flex gap-4 items-center">
-              <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-900 rounded-xl overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground/35">
+              <div className="w-16 h-16 bg-zinc-950 border border-zinc-850 rounded-xl overflow-hidden shrink-0 flex items-center justify-center text-zinc-500">
                 {customizeProduct.image_url ? (
                   <img src={customizeProduct.image_url} alt={customizeProduct.name} className="w-full h-full object-cover" />
                 ) : (
@@ -428,21 +421,21 @@ export default function KioskPage() {
                 )}
               </div>
               <div>
-                <h3 className="font-black text-sm text-foreground">{customizeProduct.name}</h3>
-                <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{customizeProduct.description || 'Tidak ada deskripsi produk.'}</p>
-                <span className="font-extrabold text-xs text-emerald-600 dark:text-emerald-500 font-mono block mt-1">
+                <h3 className="font-black text-sm text-zinc-100">{customizeProduct.name}</h3>
+                <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">{customizeProduct.description || 'Tidak ada deskripsi produk.'}</p>
+                <span className="font-extrabold text-xs text-amber-400 font-mono block mt-1">
                   Harga dasar: Rp {parseFloat(customizeProduct.sell_price).toLocaleString('id-ID')}
                 </span>
               </div>
             </div>
 
-            <Separator />
+            <Separator className="bg-zinc-800" />
 
             {/* Customization Options */}
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
               {/* 1. Size Selection */}
               <div className="space-y-2">
-                <label className="text-[10px] text-muted-foreground font-black uppercase tracking-wider">Pilih Ukuran (Size)</label>
+                <label className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">Pilih Ukuran (Size)</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { key: 'Small', label: 'Small', extra: 0 },
@@ -454,12 +447,12 @@ export default function KioskPage() {
                       onClick={() => setCustomSize(opt.key as any)}
                       className={`cursor-pointer p-2.5 rounded-xl border text-center transition-all ${
                         customSize === opt.key 
-                          ? 'border-red-500 bg-red-50/20 text-red-600 font-bold' 
-                          : 'border-border hover:bg-slate-50'
+                          ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300 font-bold' 
+                          : 'border-zinc-800 bg-zinc-950/40 text-zinc-300 hover:bg-zinc-800'
                       }`}
                     >
                       <span className="text-xs block leading-none">{opt.label}</span>
-                      <span className="text-[9px] text-zinc-500 mt-1 block">
+                      <span className="text-[9px] text-zinc-400 mt-1 block">
                         {opt.extra === 0 ? 'Normal' : `+Rp ${opt.extra.toLocaleString('id-ID')}`}
                       </span>
                     </div>
@@ -469,7 +462,7 @@ export default function KioskPage() {
 
               {/* 2. Bread Modifier */}
               <div className="space-y-2">
-                <label className="text-[10px] text-muted-foreground font-black uppercase tracking-wider">Pilih Roti / Karbo</label>
+                <label className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">Pilih Roti / Karbo</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { key: 'Wheat Roll', label: 'Gandum', extra: 0 },
@@ -481,12 +474,12 @@ export default function KioskPage() {
                       onClick={() => setCustomBread(opt.key as any)}
                       className={`cursor-pointer p-2.5 rounded-xl border text-center transition-all ${
                         customBread === opt.key 
-                          ? 'border-red-500 bg-red-50/20 text-red-600 font-bold' 
-                          : 'border-border hover:bg-slate-50'
+                          ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300 font-bold' 
+                          : 'border-zinc-800 bg-zinc-950/40 text-zinc-300 hover:bg-zinc-800'
                       }`}
                     >
                       <span className="text-xs block leading-none">{opt.label}</span>
-                      <span className="text-[9px] text-zinc-500 mt-1 block">
+                      <span className="text-[9px] text-zinc-400 mt-1 block">
                         {opt.extra === 0 ? 'Normal' : `+Rp ${opt.extra.toLocaleString('id-ID')}`}
                       </span>
                     </div>
@@ -496,7 +489,7 @@ export default function KioskPage() {
 
               {/* 3. Checkbox Add-ons */}
               <div className="space-y-2">
-                <label className="text-[10px] text-muted-foreground font-black uppercase tracking-wider">Ekstra Topping (Add-Ons)</label>
+                <label className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">Ekstra Topping (Add-Ons)</label>
                 <div className="grid grid-cols-1 gap-2">
                   {[
                     { name: 'Ekstra Keju', price: 3000 },
@@ -510,12 +503,12 @@ export default function KioskPage() {
                         onClick={() => handleToggleAddOn(addOn.name, addOn.price)}
                         className={`cursor-pointer p-2.5 rounded-xl border flex justify-between items-center transition-all ${
                           isChecked 
-                            ? 'border-red-500 bg-red-50/10 text-red-600 font-semibold' 
-                            : 'border-border hover:bg-slate-50'
+                            ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300 font-semibold' 
+                            : 'border-zinc-800 bg-zinc-950/40 text-zinc-300 hover:bg-zinc-800'
                         }`}
                       >
                         <span className="text-xs">{addOn.name}</span>
-                        <span className="text-[10px] font-mono text-zinc-500">
+                        <span className="text-[10px] font-mono text-zinc-400">
                           +Rp {addOn.price.toLocaleString('id-ID')}
                         </span>
                       </div>
@@ -525,24 +518,24 @@ export default function KioskPage() {
               </div>
             </div>
 
-            <Separator />
+            <Separator className="bg-zinc-800" />
 
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
-                <span className="text-[9px] text-muted-foreground font-bold">ESTIMASI HARGA</span>
-                <span className="font-black text-base text-emerald-600 dark:text-emerald-500 font-mono">
+                <span className="text-[9px] text-zinc-400 font-bold animate-pulse">ESTIMASI HARGA</span>
+                <span className="font-black text-base text-amber-400 font-mono">
                   Rp {calculateCustomizedPrice().toLocaleString('id-ID')}
                 </span>
               </div>
               <div className="flex gap-2">
                 <DialogClose asChild>
-                  <Button variant="outline" className="h-10 text-xs font-bold rounded-xl px-4">
+                  <Button variant="outline" className="h-10 text-xs font-bold rounded-xl px-4 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white bg-transparent">
                     Batal
                   </Button>
                 </DialogClose>
                 <Button 
                   onClick={handleAddToCart}
-                  className="bg-red-600 hover:bg-red-700 text-white font-black h-10 text-xs rounded-xl px-5"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-10 text-xs rounded-xl px-5"
                 >
                   Tambah
                 </Button>
@@ -561,8 +554,8 @@ export default function KioskPage() {
     // Welcome Screen
     if (!sessionActive) {
       return (
-        <div className={`w-full max-w-[480px] h-[92vh] flex flex-col justify-between items-center relative p-6 select-none overflow-hidden rounded-[40px] border-[12px] border-zinc-800 bg-zinc-950 shadow-2xl transition-all duration-300 ${
-          highContrast ? 'text-white' : 'bg-gradient-to-br from-red-600 via-rose-700 to-rose-900 text-white'
+        <div className={`w-full max-w-md min-h-[85vh] md:min-h-[90vh] flex flex-col justify-between items-center relative p-6 select-none overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-xl transition-all duration-300 ${
+          highContrast ? 'text-white font-black' : 'bg-gradient-to-br from-indigo-950 via-slate-900 to-zinc-950 text-white'
         }`}>
           {/* Floating sparkles */}
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
@@ -601,37 +594,33 @@ export default function KioskPage() {
             <div className="grid grid-cols-1 gap-4 w-full pt-4 max-w-[320px]">
               <Card 
                 onClick={() => handleStartSession('dine_in')}
-                className={`cursor-pointer group border-white/10 hover:border-amber-300 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden backdrop-blur-md ${
-                  highContrast ? 'bg-zinc-900 text-white' : 'bg-white/10 text-white'
-                }`}
+                className={`cursor-pointer group border-zinc-800 hover:border-indigo-500/50 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden bg-zinc-900/40 text-white`}
               >
                 <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-amber-400 text-slate-950 p-2.5 rounded-full shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                  <div className="bg-indigo-600 text-white p-2.5 rounded-full shadow-lg group-hover:scale-110 transition-transform shrink-0">
                     <Utensils className="w-5 h-5" />
                   </div>
                   <div className="text-left">
                     <h3 className="font-extrabold text-sm">Makan Di Sini</h3>
-                    <p className="text-[8px] text-white/60 font-semibold uppercase tracking-wider mt-0.5">Dine In</p>
+                    <p className="text-[8px] text-zinc-400 font-semibold uppercase tracking-wider mt-0.5">Dine In</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-white/40 ml-auto group-hover:text-amber-300 group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="w-4 h-4 text-zinc-600 ml-auto group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                 </CardContent>
               </Card>
 
               <Card 
                 onClick={() => handleStartSession('take_away')}
-                className={`cursor-pointer group border-white/10 hover:border-amber-300 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden backdrop-blur-md ${
-                  highContrast ? 'bg-zinc-900 text-white' : 'bg-white/10 text-white'
-                }`}
+                className={`cursor-pointer group border-zinc-800 hover:border-indigo-500/50 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden bg-zinc-900/40 text-white`}
               >
                 <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-amber-400 text-slate-950 p-2.5 rounded-full shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                  <div className="bg-indigo-600 text-white p-2.5 rounded-full shadow-lg group-hover:scale-110 transition-transform shrink-0">
                     <CalendarDays className="w-5 h-5" />
                   </div>
                   <div className="text-left">
                     <h3 className="font-extrabold text-sm">Bawa Pulang</h3>
-                    <p className="text-[8px] text-white/60 font-semibold uppercase tracking-wider mt-0.5">Take Away</p>
+                    <p className="text-[8px] text-zinc-400 font-semibold uppercase tracking-wider mt-0.5">Take Away</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-white/40 ml-auto group-hover:text-amber-300 group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="w-4 h-4 text-zinc-600 ml-auto group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                 </CardContent>
               </Card>
             </div>
@@ -668,60 +657,64 @@ export default function KioskPage() {
 
     // Catalog Screen in Kiosk Mode
     return (
-      <div className={`w-full max-w-[480px] h-[92vh] flex flex-col justify-between relative overflow-hidden rounded-[40px] border-[12px] border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl ${
-        highContrast ? 'bg-black text-white' : 'text-foreground'
-      }`}>
+      <div className={`w-full max-w-md min-h-[85vh] md:min-h-[90vh] flex flex-col justify-between relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl text-white`}>
         {/* Header */}
-        <header className="border-b border-border bg-white dark:bg-zinc-950 px-4 py-3 flex justify-between items-center sticky top-0 z-20">
+        <header className="border-b border-zinc-800 bg-slate-900 px-4 py-3 flex justify-between items-center sticky top-0 z-20 text-white">
           <div className="flex items-center gap-2">
-            <div className="bg-red-600 p-1.5 rounded-lg text-white shadow-md">
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white shadow-md">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <h1 className="font-extrabold text-xs tracking-wide">KEPOS Kiosk</h1>
-              <p className="text-[8px] text-muted-foreground font-mono uppercase tracking-wider">
+              <p className="text-[8px] text-zinc-400 font-mono uppercase tracking-wider">
                 {orderType === 'dine_in' ? "Dine In" : "Take Away"}
               </p>
             </div>
           </div>
 
           <div className="relative max-w-[140px] w-full">
-            <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-zinc-500" />
             <Input 
               placeholder="Cari..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-7 h-7 text-[10px] rounded-lg bg-slate-100 dark:bg-zinc-900 border-none"
+              className="pl-7 h-7 text-[10px] rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-indigo-500/20"
             />
           </div>
 
           <Button 
-            variant="destructive" 
+            variant="outline" 
             size="sm"
             onClick={handleCancelSession}
-            className="text-[10px] font-bold rounded-lg h-7 px-2.5"
+            className="text-[10px] font-bold rounded-lg h-7 px-2.5 border-zinc-850 hover:bg-zinc-800 text-zinc-300 bg-transparent"
           >
             Batal
           </Button>
         </header>
 
         {/* Categories Pills */}
-        <div className="px-4 py-2 border-b border-border bg-slate-50 dark:bg-zinc-900/30 flex gap-1.5 overflow-x-auto shrink-0 scrollbar-none">
+        <div className="px-4 py-2 border-b border-zinc-800 bg-slate-900/50 flex gap-1.5 overflow-x-auto shrink-0 scrollbar-none">
           <Button 
-            variant={selectedCategoryId === null ? "default" : "outline"} 
             size="sm" 
             onClick={() => setSelectedCategoryId(null)} 
-            className="whitespace-nowrap text-[10px] rounded-lg font-bold h-7 px-2.5 shrink-0"
+            className={`whitespace-nowrap text-[10px] rounded-lg font-bold h-7 px-2.5 shrink-0 ${
+              selectedCategoryId === null 
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                : 'bg-zinc-900/60 border border-zinc-800 text-zinc-450 hover:text-zinc-200'
+            }`}
           >
             Semua
           </Button>
           {categories.map(cat => (
             <Button 
               key={cat.id} 
-              variant={selectedCategoryId === cat.id ? "default" : "outline"} 
               size="sm" 
               onClick={() => setSelectedCategoryId(cat.id)} 
-              className="whitespace-nowrap text-[10px] rounded-lg font-bold h-7 px-2.5 shrink-0"
+              className={`whitespace-nowrap text-[10px] rounded-lg font-bold h-7 px-2.5 shrink-0 ${
+                selectedCategoryId === cat.id 
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                  : 'bg-zinc-900/60 border border-zinc-800 text-zinc-400 hover:text-zinc-200'
+              }`}
             >
               {cat.name}
             </Button>
@@ -758,19 +751,19 @@ export default function KioskPage() {
                   <Card 
                     key={product.id}
                     onClick={() => handleProductClick(product)}
-                    className={`hover:border-primary/40 hover:shadow-sm transition-all duration-300 group flex flex-col justify-between overflow-hidden rounded-xl border-border/60 cursor-pointer ${
-                      quantityInCart > 0 ? 'border-red-500/30 ring-1 ring-red-500/5 bg-red-500/[0.01]' : ''
-                    } ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    className={`hover:border-indigo-500/40 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/80 transition-all duration-300 group flex flex-col justify-between overflow-hidden rounded-xl cursor-pointer ${
+                      quantityInCart > 0 ? 'border-indigo-500/60 ring-1 ring-indigo-500/20 bg-indigo-500/[0.02]' : ''
+                    } ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
                     <CardContent className="p-2.5 flex flex-col justify-between h-full space-y-2">
                       <div className="space-y-1.5">
                         <div className="flex justify-between items-start">
-                          <span className="text-[8px] text-red-600 font-mono bg-red-50 dark:bg-red-950/20 px-1 py-0.2 rounded border border-red-500/5">
+                          <span className="text-[8px] text-indigo-400 font-mono bg-indigo-950/30 px-1.5 py-0.5 rounded border border-indigo-500/10">
                             {product.sku}
                           </span>
                           <div className="flex flex-col items-end gap-0.5">
                             {isOutOfStock && (
-                              <Badge variant="destructive" className="text-[7px] px-1 py-0.1 font-bold uppercase rounded">
+                              <Badge variant="destructive" className="text-[7px] px-1 py-0.1 font-bold uppercase rounded text-white bg-red-650">
                                 Habis
                               </Badge>
                             )}
@@ -783,7 +776,7 @@ export default function KioskPage() {
                         </div>
 
                         {/* Product Image */}
-                        <div className="w-full h-20 bg-slate-100 dark:bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center text-muted-foreground/30 relative">
+                        <div className="w-full h-20 bg-zinc-950/80 border border-zinc-800/80 rounded-lg overflow-hidden flex items-center justify-center text-zinc-500 relative">
                           {product.image_url ? (
                             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                           ) : (
@@ -791,21 +784,21 @@ export default function KioskPage() {
                           )}
                         </div>
 
-                        <h3 className="font-extrabold text-[11px] leading-tight text-foreground line-clamp-2">
+                        <h3 className="font-extrabold text-[11px] leading-tight text-zinc-150 line-clamp-2">
                           {product.name}
                         </h3>
                       </div>
 
-                      <div className="flex justify-between items-center pt-0.5 border-t border-slate-50 dark:border-zinc-800">
-                        <span className="font-black text-[10px] text-emerald-600 dark:text-emerald-500 font-mono">
+                      <div className="flex justify-between items-center pt-0.5 border-t border-zinc-800/60">
+                        <span className="font-black text-[10px] text-amber-400 font-mono">
                           Rp {parseFloat(product.sell_price).toLocaleString('id-ID')}
                         </span>
                         {quantityInCart > 0 ? (
-                          <Badge className="bg-red-600 text-white text-[8px] font-bold rounded-full px-1.5 py-0.2">
+                          <Badge className="bg-indigo-600 text-white text-[8px] font-bold rounded-full px-1.5 py-0.2">
                             {quantityInCart}
                           </Badge>
                         ) : (
-                          <span className="text-[9px] font-bold text-red-600 hover:underline">+ Pilih</span>
+                          <span className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline">+ Pilih</span>
                         )}
                       </div>
                     </CardContent>
@@ -818,17 +811,17 @@ export default function KioskPage() {
 
         {/* Sticky Kiosk Footer Bar */}
         {cart.length > 0 && (
-          <div className="p-3 bg-white dark:bg-zinc-950 border-t border-border shadow-lg flex justify-between items-center rounded-t-2xl z-30">
+          <div className="p-3 bg-slate-900 border-t border-zinc-800 shadow-lg flex justify-between items-center rounded-t-2xl z-30">
             <div className="flex flex-col">
-              <span className="text-[8px] text-muted-foreground font-black uppercase tracking-wider">TOTAL ({getCartItemCount()} Item)</span>
-              <span className="font-black text-sm text-emerald-600 dark:text-emerald-500 font-mono">
+              <span className="text-[8px] text-zinc-400 font-black uppercase tracking-wider">TOTAL ({getCartItemCount()} Item)</span>
+              <span className="font-black text-sm text-amber-400 font-mono">
                 Rp {getCartTotal().toLocaleString('id-ID')}
               </span>
             </div>
 
             <Button 
               onClick={() => setReviewOpen(true)}
-              className="bg-red-600 hover:bg-red-700 text-white font-black text-[11px] px-4 rounded-xl h-9 shadow-md flex gap-1 items-center"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] px-4 rounded-xl h-9 shadow-md flex gap-1 items-center"
             >
               Tinjau Pesanan
               <ChevronRight className="w-3.5 h-3.5" />
@@ -839,37 +832,37 @@ export default function KioskPage() {
         {/* Review Dialog in Kiosk Mode */}
         {reviewOpen && (
           <Dialog open={true} onOpenChange={setReviewOpen}>
-            <DialogContent className="max-w-xs p-4 bg-white dark:bg-zinc-950 rounded-2xl border border-border text-foreground flex flex-col max-h-[75vh]">
+            <DialogContent className="max-w-xs p-4 bg-slate-900 rounded-2xl border border-zinc-800 text-white flex flex-col max-h-[75vh]">
               <DialogTitle className="hidden">Review Order</DialogTitle>
               <DialogDescription className="hidden">Review Order Description</DialogDescription>
               <div className="space-y-3 flex flex-col flex-1 overflow-hidden">
                 <div className="flex justify-between items-center">
                   <span className="font-black text-xs">Keranjang Belanja</span>
-                  <Badge className="bg-red-50 text-red-600 border border-red-100 text-[8px]">
+                  <Badge className="bg-indigo-950/40 text-indigo-400 border border-indigo-900/40 text-[8px] font-bold">
                     {orderType === 'dine_in' ? 'Dine In' : 'Take Away'}
                   </Badge>
                 </div>
 
-                <Separator />
+                <Separator className="bg-zinc-800" />
 
                 <ScrollArea className="flex-1 pr-1">
                   <div className="space-y-2.5">
                     {cart.map((item, idx) => (
-                      <div key={idx} className="p-2 bg-slate-50 dark:bg-zinc-900/50 rounded-lg border border-border/40 text-[10px]">
+                      <div key={idx} className="p-2 bg-zinc-950/40 rounded-lg border border-zinc-850 text-[10px] space-y-1">
                         <h4 className="font-extrabold truncate">{item.product.name}</h4>
-                        <p className="text-[8px] text-zinc-500 mt-0.5">
+                        <p className="text-[8px] text-zinc-400">
                           Sz: {item.customization.size} | Rd: {item.customization.bread}
                         </p>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-emerald-600 font-bold font-mono">
+                        <div className="flex justify-between items-center mt-1 border-t border-zinc-800/40 pt-1">
+                          <span className="text-amber-400 font-bold font-mono">
                             Rp {(item.calculatedPrice * item.quantity).toLocaleString('id-ID')}
                           </span>
-                          <div className="flex items-center gap-1 bg-white border rounded p-0.2">
-                            <button onClick={() => handleUpdateQty(idx, -1)} className="p-0.5 text-zinc-500">
-                              {item.quantity === 1 ? <Trash2 className="w-2.5 h-2.5 text-red-500" /> : <Minus className="w-2.5 h-2.5" />}
+                          <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded p-0.5">
+                            <button onClick={() => handleUpdateQty(idx, -1)} className="p-0.5 text-zinc-400 hover:text-white">
+                              {item.quantity === 1 ? <Trash2 className="w-2.5 h-2.5 text-red-400" /> : <Minus className="w-2.5 h-2.5" />}
                             </button>
-                            <span className="font-bold px-1">{item.quantity}</span>
-                            <button onClick={() => handleUpdateQty(idx, 1)} className="p-0.5 text-zinc-500">
+                            <span className="font-bold px-1 text-[9px] font-mono">{item.quantity}</span>
+                            <button onClick={() => handleUpdateQty(idx, 1)} className="p-0.5 text-zinc-400 hover:text-white">
                               <Plus className="w-2.5 h-2.5" />
                             </button>
                           </div>
@@ -879,40 +872,40 @@ export default function KioskPage() {
                   </div>
                 </ScrollArea>
 
-                <Separator />
+                <Separator className="bg-zinc-800" />
 
                 {orderType === 'dine_in' && (
                   <div className="space-y-1">
-                    <label className="text-[8px] text-zinc-500 font-black uppercase">Nomor Meja</label>
+                    <label className="text-[8px] text-zinc-400 font-black uppercase">Nomor Meja</label>
                     <Input 
                       type="text" 
                       placeholder="Contoh: Meja 12"
                       value={tableNumber}
                       onChange={(e) => setTableNumber(e.target.value)}
-                      className="h-7 text-[10px] rounded-lg"
+                      className="h-7 text-[10px] rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-100 focus-visible:ring-1 focus-visible:ring-indigo-500/20"
                     />
                   </div>
                 )}
 
                 {validationError && (
-                  <div className="p-2 bg-rose-50 text-rose-600 text-[8px] rounded border border-rose-100 leading-normal">
+                  <div className="p-2 bg-rose-950/20 text-rose-450 text-[8px] rounded border border-rose-900/30 leading-normal font-semibold">
                     {validationError}
                   </div>
                 )}
 
-                <div className="space-y-2 pt-2 border-t">
+                <div className="space-y-2 pt-2 border-t border-zinc-800">
                   <div className="flex justify-between text-xs">
                     <span className="font-bold">Total:</span>
-                    <span className="font-black text-emerald-600 font-mono">Rp {getCartTotal().toLocaleString('id-ID')}</span>
+                    <span className="font-black text-amber-400 font-mono">Rp {getCartTotal().toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex gap-1.5">
-                    <Button variant="outline" onClick={() => setReviewOpen(false)} className="w-1/3 h-8 text-[10px]">
+                    <Button variant="outline" onClick={() => setReviewOpen(false)} className="w-1/3 h-8 text-[10px] border-zinc-800 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white">
                       Kembali
                     </Button>
                     <Button 
                       disabled={submitting}
                       onClick={handleSubmitOrder}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-8 text-[10px]"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-8 text-[10px]"
                     >
                       {submitting ? 'Mengirim...' : 'Simpan'}
                     </Button>
@@ -935,8 +928,8 @@ export default function KioskPage() {
     // Welcome Screen
     if (!sessionActive) {
       return (
-        <div className={`w-full max-w-5xl h-[85vh] flex flex-col justify-between items-center relative p-8 select-none overflow-hidden rounded-[30px] border-[10px] border-zinc-800 bg-zinc-950 shadow-2xl transition-all duration-300 ${
-          highContrast ? 'text-white' : 'bg-gradient-to-br from-red-600 via-rose-700 to-rose-900 text-white'
+        <div className={`w-full max-w-5xl min-h-[75vh] md:min-h-[80vh] flex flex-col justify-between items-center relative p-8 select-none overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl transition-all duration-300 ${
+          highContrast ? 'text-white font-black' : 'bg-gradient-to-br from-indigo-950 via-slate-900 to-zinc-950 text-white'
         }`}>
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
 
@@ -969,34 +962,30 @@ export default function KioskPage() {
             <div className="grid grid-cols-2 gap-4">
               <Card 
                 onClick={() => handleStartSession('dine_in')}
-                className={`cursor-pointer group border-white/10 hover:border-amber-300 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden backdrop-blur-md ${
-                  highContrast ? 'bg-zinc-900 text-white' : 'bg-white/10 text-white'
-                }`}
+                className={`cursor-pointer group border-zinc-800 hover:border-indigo-500/50 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden bg-zinc-900/40 text-white`}
               >
                 <CardContent className="p-6 flex flex-col items-center justify-center space-y-4">
-                  <div className="bg-amber-400 text-slate-950 p-3.5 rounded-full shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="bg-indigo-600 text-white p-3.5 rounded-full shadow-lg group-hover:scale-110 transition-transform">
                     <Utensils className="w-6 h-6" />
                   </div>
                   <div className="text-center">
                     <h3 className="font-extrabold text-base">Makan Di Sini</h3>
-                    <p className="text-[9px] text-white/60 font-semibold uppercase tracking-wider mt-1">Dine In</p>
+                    <p className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider mt-1">Dine In</p>
                   </div>
                 </CardContent>
               </Card>
 
               <Card 
                 onClick={() => handleStartSession('take_away')}
-                className={`cursor-pointer group border-white/10 hover:border-amber-300 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden backdrop-blur-md ${
-                  highContrast ? 'bg-zinc-900 text-white' : 'bg-white/10 text-white'
-                }`}
+                className={`cursor-pointer group border-zinc-800 hover:border-indigo-500/50 hover:scale-[1.03] transition-all duration-300 shadow-xl overflow-hidden bg-zinc-900/40 text-white`}
               >
                 <CardContent className="p-6 flex flex-col items-center justify-center space-y-4">
-                  <div className="bg-amber-400 text-slate-950 p-3.5 rounded-full shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="bg-indigo-600 text-white p-3.5 rounded-full shadow-lg group-hover:scale-110 transition-transform">
                     <CalendarDays className="w-6 h-6" />
                   </div>
                   <div className="text-center">
                     <h3 className="font-extrabold text-base">Bawa Pulang</h3>
-                    <p className="text-[9px] text-white/60 font-semibold uppercase tracking-wider mt-1">Take Away</p>
+                    <p className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider mt-1">Take Away</p>
                   </div>
                 </CardContent>
               </Card>
@@ -1033,17 +1022,17 @@ export default function KioskPage() {
 
     // Catalog Screen in Tablet Mode (Landscape 3 columns layout: Left Sidebar, Middle Products Grid, Right Persistent Cart)
     return (
-      <div className={`w-full max-w-[1200px] h-[85vh] flex flex-col justify-between relative overflow-hidden rounded-[30px] border-[10px] border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl text-foreground`}>
+      <div className={`w-full max-w-[1200px] min-h-[75vh] md:min-h-[80vh] flex flex-col justify-between relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl text-white`}>
         
         {/* Top Mini Header */}
-        <header className="border-b border-border bg-white dark:bg-zinc-950 px-6 py-3 flex justify-between items-center sticky top-0 z-20 shrink-0">
+        <header className="border-b border-zinc-800 bg-slate-900 px-6 py-3 flex justify-between items-center sticky top-0 z-20 shrink-0 text-white">
           <div className="flex items-center gap-3">
-            <div className="bg-red-600 p-2 rounded-xl text-white shadow-md">
+            <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md">
               <Sparkles className="w-4.5 h-4.5" />
             </div>
             <div>
               <h1 className="font-extrabold text-sm tracking-wide">KEPOS Tablet Station</h1>
-              <p className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">
+              <p className="text-[9px] text-zinc-400 font-mono uppercase tracking-wider">
                 {orderType === 'dine_in' ? 'Makan Di Sini' : 'Bawa Pulang'}
               </p>
             </div>
@@ -1051,20 +1040,20 @@ export default function KioskPage() {
 
           {/* Search bar */}
           <div className="relative max-w-sm w-full mx-6">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
             <Input 
               placeholder="Cari makanan..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 text-xs rounded-xl bg-slate-100 dark:bg-zinc-900 border-none focus-visible:ring-1 focus-visible:ring-primary/20"
+              className="pl-9 h-9 text-xs rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-indigo-500/20"
             />
           </div>
 
           <Button 
-            variant="destructive" 
+            variant="outline" 
             size="sm"
             onClick={handleCancelSession}
-            className="text-xs font-bold rounded-xl h-8 px-4"
+            className="text-xs font-bold rounded-xl h-8 px-4 border-zinc-800 hover:bg-zinc-800 text-zinc-350 bg-transparent"
           >
             Selesai / Batal
           </Button>
@@ -1074,23 +1063,29 @@ export default function KioskPage() {
         <div className="flex-1 flex overflow-hidden">
           
           {/* Column 1: Left Categories list (Width: 20%) */}
-          <div className="w-[20%] border-r border-border bg-slate-50/50 dark:bg-zinc-900/10 flex flex-col p-4 space-y-2 overflow-y-auto">
-            <span className="text-[9px] text-muted-foreground font-black uppercase tracking-wider px-2 mb-1">Kategori Menu</span>
+          <div className="w-[20%] border-r border-zinc-800 bg-slate-950 flex flex-col p-4 space-y-2 overflow-y-auto">
+            <span className="text-[9px] text-zinc-400 font-black uppercase tracking-wider px-2 mb-1">Kategori Menu</span>
             <Button 
-              variant={selectedCategoryId === null ? "default" : "outline"} 
               size="sm" 
               onClick={() => setSelectedCategoryId(null)} 
-              className="justify-start text-left font-bold text-xs rounded-xl h-10 px-4 w-full"
+              className={`justify-start text-left font-bold text-xs rounded-xl h-10 px-4 w-full ${
+                selectedCategoryId === null 
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                  : 'bg-zinc-900/40 border border-zinc-800 text-zinc-400 hover:text-zinc-200'
+              }`}
             >
               Semua Menu
             </Button>
             {categories.map(cat => (
               <Button 
                 key={cat.id} 
-                variant={selectedCategoryId === cat.id ? "default" : "outline"} 
                 size="sm" 
                 onClick={() => setSelectedCategoryId(cat.id)} 
-                className="justify-start text-left font-bold text-xs rounded-xl h-10 px-4 w-full"
+                className={`justify-start text-left font-bold text-xs rounded-xl h-10 px-4 w-full ${
+                  selectedCategoryId === cat.id 
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                    : 'bg-zinc-900/40 border border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                }`}
               >
                 {cat.name}
               </Button>
@@ -1098,11 +1093,11 @@ export default function KioskPage() {
           </div>
 
           {/* Column 2: Middle Catalog Products Grid (Width: 52%) */}
-          <div className="w-[52%] flex flex-col p-5 overflow-y-auto">
+          <div className="w-[52%] flex flex-col p-5 bg-slate-950/60 overflow-y-auto">
             {loading ? (
               <div className="m-auto flex flex-col justify-center items-center gap-3">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                <span className="text-xs text-muted-foreground font-bold">Memuat daftar menu...</span>
+                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                <span className="text-xs text-zinc-400 font-bold">Memuat daftar menu...</span>
               </div>
             ) : error ? (
               <div className="p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-2xl flex items-center gap-3">
@@ -1111,8 +1106,8 @@ export default function KioskPage() {
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="m-auto text-center space-y-2">
-                <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm font-bold text-muted-foreground">Tidak ada menu yang cocok.</p>
+                <ShoppingBag className="w-10 h-10 text-zinc-650 mx-auto" />
+                <p className="text-sm font-bold text-zinc-400">Tidak ada menu yang cocok.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -1127,19 +1122,19 @@ export default function KioskPage() {
                     <Card 
                       key={product.id}
                       onClick={() => handleProductClick(product)}
-                      className={`hover:border-primary/40 hover:shadow-md transition-all duration-300 group flex flex-col justify-between overflow-hidden rounded-2xl border-border/80 cursor-pointer ${
-                        quantityInCart > 0 ? 'border-red-500/30 ring-1 ring-red-500/10 bg-red-500/[0.02]' : ''
-                      } ${isOutOfStock ? 'opacity-65 cursor-not-allowed' : ''}`}
+                      className={`hover:border-indigo-500/40 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-805 transition-all duration-300 group flex flex-col justify-between overflow-hidden rounded-2xl cursor-pointer ${
+                        quantityInCart > 0 ? 'border-indigo-500/60 ring-1 ring-indigo-500/20 bg-indigo-500/[0.02]' : ''
+                      } ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                       <CardContent className="p-3.5 flex flex-col justify-between h-full space-y-3">
                         <div className="space-y-2">
                           <div className="flex justify-between items-start">
-                            <span className="text-[9px] text-red-600 font-mono bg-red-50 dark:bg-red-950/20 px-1.5 py-0.5 rounded border border-red-500/10">
+                            <span className="text-[9px] text-indigo-400 font-mono bg-indigo-950/30 px-1.5 py-0.5 rounded border border-indigo-500/10">
                               {product.sku}
                             </span>
                             <div className="flex flex-col items-end gap-1">
                               {isOutOfStock && (
-                                <Badge variant="destructive" className="text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase">
+                                <Badge variant="destructive" className="text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase text-white bg-red-650">
                                   Habis
                                 </Badge>
                               )}
@@ -1152,7 +1147,7 @@ export default function KioskPage() {
                           </div>
 
                           {/* Product Image */}
-                          <div className="w-full h-24 bg-slate-100 dark:bg-zinc-900 rounded-xl overflow-hidden flex items-center justify-center text-muted-foreground/35 relative">
+                          <div className="w-full h-24 bg-zinc-950/80 border border-zinc-800/80 rounded-xl overflow-hidden flex items-center justify-center text-zinc-500 relative">
                             {product.image_url ? (
                               <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                             ) : (
@@ -1160,22 +1155,22 @@ export default function KioskPage() {
                             )}
                           </div>
 
-                          <h3 className="font-extrabold text-xs text-foreground line-clamp-2 leading-snug">
+                          <h3 className="font-extrabold text-xs text-zinc-150 line-clamp-2 leading-snug">
                             {product.name}
                           </h3>
                         </div>
 
-                        <div className="flex justify-between items-center pt-1.5 border-t">
-                          <span className="font-black text-xs text-emerald-600 dark:text-emerald-500 font-mono">
+                        <div className="flex justify-between items-center pt-1.5 border-t border-zinc-800/60">
+                          <span className="font-black text-xs text-amber-400 font-mono">
                             Rp {parseFloat(product.sell_price).toLocaleString('id-ID')}
                           </span>
                           
                           {quantityInCart > 0 ? (
-                            <Badge className="bg-red-600 text-white text-[9px] font-bold rounded-full px-2 py-0.5">
+                            <Badge className="bg-indigo-600 text-white text-[9px] font-bold rounded-full px-2 py-0.5">
                               {quantityInCart} Dipilih
                             </Badge>
                           ) : (
-                            <Button size="sm" variant="outline" disabled={isOutOfStock} className="h-7 text-[10px] rounded-lg font-bold">
+                            <Button size="sm" variant="outline" disabled={isOutOfStock} className="h-7 text-[10px] rounded-lg font-bold border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white bg-transparent">
                               + Pilih
                             </Button>
                           )}
@@ -1189,57 +1184,57 @@ export default function KioskPage() {
           </div>
 
           {/* Column 3: Right Persistent Cart / Checkout (Width: 28%) */}
-          <div className="w-[28%] border-l border-border bg-slate-50/50 dark:bg-zinc-900/10 flex flex-col justify-between p-4 overflow-hidden">
+          <div className="w-[28%] border-l border-zinc-800 bg-slate-950 flex flex-col justify-between p-4 overflow-hidden">
             <div className="flex-1 flex flex-col overflow-hidden space-y-4">
               
               {/* Cart Header */}
               <div className="flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4 text-red-600" />
-                  <span className="font-black text-xs text-foreground">Keranjang Belanja</span>
+                  <ShoppingCart className="w-4 h-4 text-indigo-400" />
+                  <span className="font-black text-xs text-zinc-100">Keranjang Belanja</span>
                 </div>
-                <Badge className="bg-red-50 text-red-600 border border-red-200 text-[9px] font-bold">
+                <Badge className="bg-indigo-955 text-indigo-400 border border-indigo-900/40 text-[9px] font-bold">
                   {getCartItemCount()} Item
                 </Badge>
               </div>
 
-              <Separator />
+              <Separator className="bg-zinc-805" />
 
               {/* Cart Scroll list */}
               <ScrollArea className="flex-1 pr-1">
                 {cart.length === 0 ? (
-                  <div className="text-center py-16 text-muted-foreground">
-                    <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30 animate-pulse" />
+                  <div className="text-center py-16 text-zinc-500">
+                    <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-zinc-700 animate-pulse" />
                     <p className="text-xs font-semibold">Keranjang Kosong</p>
-                    <p className="text-[10px] mt-1 max-w-[130px] mx-auto">Pilih menu dari katalog di sebelah kiri.</p>
+                    <p className="text-[10px] mt-1 max-w-[130px] mx-auto text-zinc-500">Pilih menu dari katalog di sebelah kiri.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {cart.map((item, idx) => (
-                      <div key={idx} className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-border/60 text-xs shadow-sm space-y-2">
+                      <div key={idx} className="p-3 bg-zinc-900/40 rounded-xl border border-zinc-850 text-xs shadow-sm space-y-2 text-white">
                         <div>
                           <h4 className="font-extrabold leading-snug">{item.product.name}</h4>
-                          <p className="text-[9px] text-zinc-500 font-semibold mt-0.5">
+                          <p className="text-[9px] text-zinc-400 mt-0.5">
                             Ukuran: {item.customization.size} | Roti: {item.customization.bread}
                           </p>
                           {item.customization.addOns.length > 0 && (
-                            <p className="text-[9px] text-zinc-400 mt-0.5">
+                            <p className="text-[9px] text-zinc-500 mt-0.5">
                               + {item.customization.addOns.map(a => a.name).join(', ')}
                             </p>
                           )}
                         </div>
 
-                        <div className="flex justify-between items-center pt-1 border-t border-slate-50 dark:border-zinc-800">
-                          <span className="text-emerald-600 font-black font-mono">
+                        <div className="flex justify-between items-center pt-1 border-t border-zinc-800/60">
+                          <span className="text-amber-400 font-black font-mono">
                             Rp {(item.calculatedPrice * item.quantity).toLocaleString('id-ID')}
                           </span>
                           
-                          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 border rounded-lg p-0.5">
-                            <button onClick={() => handleUpdateQty(idx, -1)} className="p-1 hover:bg-slate-100 rounded text-muted-foreground">
-                              {item.quantity === 1 ? <Trash2 className="w-3 h-3 text-red-500" /> : <Minus className="w-3 h-3" />}
+                          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+                            <button onClick={() => handleUpdateQty(idx, -1)} className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white">
+                              {item.quantity === 1 ? <Trash2 className="w-3 h-3 text-red-400" /> : <Minus className="w-3 h-3" />}
                             </button>
                             <span className="text-xs font-bold font-mono px-1">{item.quantity}</span>
-                            <button onClick={() => handleUpdateQty(idx, 1)} className="p-1 hover:bg-slate-100 rounded text-muted-foreground">
+                            <button onClick={() => handleUpdateQty(idx, 1)} className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white">
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
@@ -1252,20 +1247,20 @@ export default function KioskPage() {
 
               {/* Table number inputs if Dine-In */}
               {orderType === 'dine_in' && cart.length > 0 && (
-                <div className="space-y-1.5 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-border/80 shrink-0">
-                  <label className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Masukkan Nomor Meja Makan</label>
+                <div className="space-y-1.5 bg-zinc-900/40 p-3 rounded-2xl border border-zinc-850 shrink-0">
+                  <label className="text-[9px] text-zinc-450 font-black uppercase tracking-wider">Masukkan Nomor Meja Makan</label>
                   <Input 
                     type="text" 
                     placeholder="Contoh: Meja 12"
                     value={tableNumber}
                     onChange={(e) => setTableNumber(e.target.value)}
-                    className="h-8 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800"
+                    className="h-8 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus-visible:ring-1 focus-visible:ring-indigo-500/20"
                   />
                 </div>
               )}
 
               {validationError && (
-                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-[10px] font-semibold shrink-0">
+                <div className="p-2.5 bg-rose-955/20 border border-rose-900/30 text-rose-400 rounded-xl text-[10px] font-semibold shrink-0">
                   {validationError}
                 </div>
               )}
@@ -1273,10 +1268,10 @@ export default function KioskPage() {
 
             {/* Persistent Checkout Summary */}
             {cart.length > 0 && (
-              <div className="pt-4 border-t border-border space-y-3 shrink-0">
+              <div className="pt-4 border-t border-zinc-805 space-y-3 shrink-0">
                 <div className="flex justify-between items-end">
-                  <span className="text-xs text-zinc-500 font-extrabold uppercase">Total Belanja</span>
-                  <span className="font-black text-base text-emerald-600 dark:text-emerald-500 font-mono">
+                  <span className="text-xs text-zinc-400 font-extrabold uppercase">Total Belanja</span>
+                  <span className="font-black text-base text-amber-400 font-mono">
                     Rp {getCartTotal().toLocaleString('id-ID')}
                   </span>
                 </div>
@@ -1284,7 +1279,7 @@ export default function KioskPage() {
                 <Button 
                   disabled={submitting}
                   onClick={handleSubmitOrder}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-black h-11 text-xs rounded-xl flex gap-2 items-center justify-center shadow-lg"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black h-11 text-xs rounded-xl flex gap-2 items-center justify-center shadow-lg"
                 >
                   {submitting ? 'Mengirim...' : 'Konfirmasi & Kirim'}
                   <ArrowRight className="w-4 h-4" />
@@ -1309,7 +1304,7 @@ export default function KioskPage() {
       {renderModeToggle()}
 
       {/* Actual page views rendering based on active option */}
-      {viewMode === 'kiosk' ? renderKioskMode() : renderTabletMode()}
+      {viewMode === 'hp' ? renderKioskMode() : renderTabletMode()}
     </div>
   );
 }

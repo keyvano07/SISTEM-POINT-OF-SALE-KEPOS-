@@ -9,11 +9,12 @@ import {
   Package, Clipboard, ShoppingCart, UserCheck, Store,
   TrendingUp, TrendingDown, DollarSign, Award, AlertCircle, Clock, ArrowRight,
   Activity, X, Loader2, ArrowUpRight, CheckCircle2, ChevronRight, Wallet,
-  CreditCard, Coins, QrCode
+  CreditCard, Coins, QrCode, FileText, Download
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface MetricData {
   today_revenue: number;
@@ -92,11 +93,48 @@ export default function DashboardPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Dashboard stats state
-  const [statsData, setStatsData] = useState<DashboardStats | null>(null);
+  const [statsData, setStatsData] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
+  // PDF Download States
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [reportStartDate, setReportStartDate] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [reportEndDate, setReportEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const response = await api.get('/reports/financial/download', {
+        params: {
+          start_date: reportStartDate,
+          end_date: reportEndDate,
+        },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Laporan_Keuangan_${reportStartDate}_to_${reportEndDate}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Gagal mengunduh laporan PDF. Pastikan rentang tanggal valid.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   // Role verification helper
-  const isManagerial = user ? ['super_admin', 'manager', 'supervisor'].includes(user.role) : false;
+  const isManagerial = user ? ['super_admin', 'owner', 'manager', 'supervisor'].includes(user.role) : false;
+  const isOwner = user?.role === 'owner';
+  const isManagerialOnly = user ? ['super_admin', 'manager', 'supervisor'].includes(user.role) : false;
   const isKasir = user?.role === 'kasir';
   const isStocker = user?.role === 'stocker';
   const isPramuniaga = user?.role === 'pramuniaga';
@@ -104,7 +142,8 @@ export default function DashboardPage() {
   const fetchDashboardStats = async () => {
     setLoadingStats(true);
     try {
-      const res = await api.get('/dashboard/stats');
+      const endpoint = user?.role === 'owner' ? '/owner/stats' : '/dashboard/stats';
+      const res = await api.get(endpoint);
       setStatsData(res.data.data);
     } catch (err) {
       console.error('Failed to fetch dashboard stats:', err);
@@ -152,7 +191,7 @@ export default function DashboardPage() {
       description: 'Atur produk, kategori, harga jual, dan status stok kritis toko.',
       icon: Package,
       path: '/dashboard/manager/products',
-      roles: ['super_admin', 'manager'],
+      roles: ['super_admin', 'owner', 'manager'],
       featured: false,
     },
     {
@@ -160,7 +199,7 @@ export default function DashboardPage() {
       description: 'Pencatatan penyesuaian stok, restock barang masuk, dan monitoring log.',
       icon: Clipboard,
       path: '/dashboard/stocker',
-      roles: ['super_admin', 'manager', 'supervisor', 'stocker'],
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'stocker'],
       featured: false,
     },
     {
@@ -168,7 +207,7 @@ export default function DashboardPage() {
       description: 'Buka antarmuka kasir utama untuk melakukan checkout transaksi pelanggan.',
       icon: ShoppingCart,
       path: '/pos',
-      roles: ['super_admin', 'manager', 'supervisor', 'kasir'],
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'kasir'],
       featured: true,
     },
     {
@@ -176,7 +215,7 @@ export default function DashboardPage() {
       description: 'Buat keranjang belanja sementara untuk pelanggan sebelum diproses kasir.',
       icon: UserCheck,
       path: '/pramuniaga',
-      roles: ['super_admin', 'manager', 'supervisor', 'pramuniaga'],
+      roles: ['super_admin', 'owner', 'manager', 'supervisor', 'pramuniaga'],
       featured: false,
     },
   ];
@@ -237,8 +276,343 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ================= OWNER VIEW (Real-time Financials & Reconciliation) ================= */}
+      {isOwner && (
+        <div className="space-y-6">
+          {loadingStats ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-card border border-border rounded-2xl gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground font-semibold">Memuat data analisis owner...</p>
+            </div>
+          ) : (
+            <>
+              {/* Owner Metrics Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Pendapatan Hari Ini</p>
+                      <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">
+                        {formatCurrency(statsData?.metrics?.today_revenue || 0)}
+                      </p>
+                      <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-0.5">
+                        <TrendingUp className="w-3 h-3" /> Transaksi Berjalan
+                      </p>
+                    </div>
+                    <div className="p-3 bg-primary/10 text-primary rounded-xl">
+                      <DollarSign className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Transaksi</p>
+                      <p className="text-2xl font-extrabold font-mono tracking-tight text-foreground">
+                        {statsData?.metrics?.today_transactions || 0} Order
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-semibold">Terproses hari ini</p>
+                    </div>
+                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
+                      <ShoppingCart className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Selisih Kas Shift (Discrepancy)</p>
+                      <p className={cn("text-2xl font-extrabold font-mono tracking-tight", 
+                        (statsData?.metrics?.total_discrepancy || 0) < 0 ? "text-rose-600 animate-pulse" : 
+                        (statsData?.metrics?.total_discrepancy || 0) > 0 ? "text-emerald-600" : "text-foreground"
+                      )}>
+                        {formatCurrency(statsData?.metrics?.total_discrepancy || 0)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-semibold">Total penyimpangan audit kas</p>
+                    </div>
+                    <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
+                      <AlertCircle className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/60 hover:shadow-md transition-all">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Transaksi Void (Hari Ini)</p>
+                      <p className="text-2xl font-extrabold font-mono tracking-tight text-destructive">
+                        {statsData?.metrics?.void_count || 0} Void
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-semibold">Nilai: {formatCurrency(statsData?.metrics?.void_amount || 0)}</p>
+                    </div>
+                    <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
+                      <X className="w-6 h-6" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Financial Reporting Download Panel */}
+              <Card className="border-border/60 shadow-sm bg-gradient-to-r from-primary/5 via-transparent to-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Laporan Keuangan & Penjualan (PDF)
+                  </CardTitle>
+                  <CardDescription>Pilih rentang tanggal untuk mengunduh laporan komprehensif PDF berisi Penjualan, HPP (COGS), Laba Kotor, dan Pembelian Barang.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col md:flex-row md:items-end gap-4">
+                    <div className="flex-1 space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">Tanggal Mulai</label>
+                      <input 
+                        type="date" 
+                        value={reportStartDate} 
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                        className="w-full bg-muted border border-border rounded-xl h-10 px-3 font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">Tanggal Akhir</label>
+                      <input 
+                        type="date" 
+                        value={reportEndDate} 
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                        className="w-full bg-muted border border-border rounded-xl h-10 px-3 font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleDownloadPdf}
+                      disabled={downloadingPdf}
+                      className="h-10 px-6 font-bold flex items-center gap-2 rounded-xl"
+                    >
+                      {downloadingPdf ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      Unduh PDF
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Chart & Alerts */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="border-border/60 lg:col-span-2 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        Tren Penjualan Mingguan
+                      </CardTitle>
+                      <Badge variant="secondary" className="text-[10px] font-bold">7 Hari Terakhir</Badge>
+                    </div>
+                    <CardDescription>Grafik tren omset harian toko berdasarkan data transaksi riil</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    {(statsData?.weekly_sales_trend || []).length === 0 ? (
+                      <div className="w-full h-[220px] flex items-center justify-center border border-dashed border-border rounded-xl text-muted-foreground text-xs font-semibold">
+                        Belum ada data penjualan tersedia.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-full h-[220px] relative">
+                          <svg className="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
+                            <defs>
+                              <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="rgb(59, 130, 246)" stopOpacity="0.25" />
+                                <stop offset="100%" stopColor="rgb(59, 130, 246)" stopOpacity="0.0" />
+                              </linearGradient>
+                              <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="#3b82f6" />
+                                <stop offset="100%" stopColor="#10b981" />
+                              </linearGradient>
+                            </defs>
+
+                            <line x1="40" y1="40" x2="460" y2="40" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
+                            <line x1="40" y1="100" x2="460" y2="100" stroke="rgba(150,150,150,0.1)" strokeDasharray="4" />
+                            <line x1="40" y1="160" x2="460" y2="160" stroke="rgba(150,150,150,0.15)" />
+
+                            {areaD && <path d={areaD} fill="url(#chartGradient)" />}
+                            {pathD && (
+                              <path
+                                  d={pathD}
+                                  fill="none"
+                                  stroke="url(#lineGradient)"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                              />
+                            )}
+
+                            {chartPoints.map((pt: ChartPoint, idx: number) => (
+                              <g key={idx}>
+                                <circle 
+                                  cx={pt.x} 
+                                  cy={pt.y} 
+                                  r="4" 
+                                  className="fill-primary stroke-background stroke-2 cursor-pointer" 
+                                />
+                              </g>
+                            ))}
+                          </svg>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground font-bold px-2 mt-2">
+                          {chartPoints.map((pt: ChartPoint, idx: number) => (
+                            <span key={idx} className="text-center w-12 truncate">
+                              {pt.day_name} ({pt.revenue >= 1000000 ? `${(pt.revenue / 1000000).toFixed(1)}jt` : `${(pt.revenue / 1000).toFixed(0)}k`})
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Critical Stock Alert / Info */}
+                <Card className="border-border/60 shadow-sm flex flex-col justify-between">
+                  <CardHeader>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Package className="w-4 h-4 text-amber-500" />
+                      Status Inventori Toko
+                    </CardTitle>
+                    <CardDescription>Kondisi persediaan barang dagang saat ini</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-2">
+                    <div className={cn("p-4 rounded-xl border flex items-center gap-3", 
+                      (statsData?.metrics?.critical_stock || 0) > 0 ? "bg-red-500/10 border-red-500/20 text-red-600" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600"
+                    )}>
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <div className="text-xs">
+                        <p className="font-bold">Stok Kritis: {statsData?.metrics?.critical_stock || 0} Produk</p>
+                        <p className="text-[10px] opacity-80 mt-0.5">
+                          {(statsData?.metrics?.critical_stock || 0) > 0 ? "Segera lakukan pemesanan/restok barang untuk mencegah kekosongan stok penjualan." : "Seluruh persediaan barang dagang saat ini berada dalam tingkat aman."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={() => router.push('/dashboard/manager/products')}
+                      variant="outline"
+                      className="w-full font-bold text-xs"
+                    >
+                      Kelola Inventori
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Recent Shifts & Audit Void Logs */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Shifts Logs */}
+                <Card className="border-border/60 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      Aktivitas Shift Kasir Terbaru
+                    </CardTitle>
+                    <CardDescription>Daftar shift yang baru saja ditutup dan status auditnya</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b bg-muted/40">
+                            <th className="p-3 text-left font-bold">Shift Code</th>
+                            <th className="p-3 text-left font-bold">Kasir</th>
+                            <th className="p-3 text-right font-bold">Selisih (Discrepancy)</th>
+                            <th className="p-3 text-center font-bold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(!statsData?.recent_shifts || statsData.recent_shifts.length === 0) ? (
+                            <tr>
+                              <td colSpan={4} className="p-6 text-center text-muted-foreground font-semibold">Belum ada aktivitas shift terekam.</td>
+                            </tr>
+                          ) : (
+                            statsData.recent_shifts.slice(0, 5).map((shift: any) => (
+                              <tr key={shift.id} className="border-b hover:bg-muted/20">
+                                <td className="p-3 font-mono font-bold text-primary">{shift.shift_code}</td>
+                                <td className="p-3 font-semibold">{shift.cashier?.name || 'Kasir'}</td>
+                                <td className={cn("p-3 text-right font-mono font-bold", 
+                                  (shift.discrepancy || 0) < 0 ? "text-rose-600" : 
+                                  (shift.discrepancy || 0) > 0 ? "text-emerald-600" : "text-muted-foreground"
+                                )}>
+                                  {formatCurrency(shift.discrepancy || 0)}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <Badge className={
+                                    shift.audit_status === 'verified' ? 'bg-emerald-500/10 text-emerald-600 border-none' :
+                                    shift.audit_status === 'flagged' ? 'bg-red-500/10 text-red-600 border-none' :
+                                    'bg-amber-500/10 text-amber-600 border-none'
+                                  }>
+                                    {shift.audit_status === 'verified' ? 'Verified' :
+                                     shift.audit_status === 'flagged' ? 'Selisih' : 'Pending'}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Audit & Void Logs */}
+                <Card className="border-border/60 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <X className="w-4 h-4 text-rose-500" />
+                      Log Void / Pembatalan Transaksi
+                    </CardTitle>
+                    <CardDescription>Otorisasi void transaksi oleh supervisor/manager</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b bg-muted/40">
+                            <th className="p-3 text-left font-bold">Staf</th>
+                            <th className="p-3 text-left font-bold">Otorisator</th>
+                            <th className="p-3 text-left font-bold">Invoice</th>
+                            <th className="p-3 text-left font-bold">Alasan</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(!statsData?.recent_void_logs || statsData.recent_void_logs.length === 0) ? (
+                            <tr>
+                              <td colSpan={4} className="p-6 text-center text-muted-foreground font-semibold">Tidak ada log pembatalan transaksi.</td>
+                            </tr>
+                          ) : (
+                            statsData.recent_void_logs.slice(0, 5).map((log: any) => (
+                              <tr key={log.id} className="border-b hover:bg-muted/20">
+                                <td className="p-3 font-semibold">{log.user?.name || 'Kasir'}</td>
+                                <td className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
+                                  {log.details?.split('Authorized by ')[1] || 'Supervisor'}
+                                </td>
+                                <td className="p-3 font-mono font-bold">{log.details?.split('Invoice ID: ')[1]?.split(' ')[0] || '-'}</td>
+                                <td className="p-3 text-muted-foreground max-w-[150px] truncate" title={log.details}>
+                                  {log.details || '-'}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ================= MANAGERIAL / EXECUTIVE VIEW (Chart & Insights) ================= */}
-      {isManagerial && (
+      {!isOwner && isManagerialOnly && (
         <div className="space-y-6">
           {loadingStats ? (
             <div className="flex flex-col items-center justify-center py-20 bg-card border border-border rounded-2xl gap-4">

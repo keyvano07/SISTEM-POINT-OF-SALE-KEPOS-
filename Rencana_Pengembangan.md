@@ -15,6 +15,9 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 6. **Fase 6 (Otorisasi, Void & Audit):** PIN Bypass supervisor, pembatalan transaksi, dan log audit immutable.
 7. **Fase 7 (Diskon & Member):** Tambahan loyalty member, sistem promo, dan cetak struk.
 8. **Fase 8 (Integrasi, QA & Deployment):** End-to-end testing, security hardening, dan persiapan deployment.
+9. **Fase 9 (Self-Service Kiosk):** Layar pemesanan mandiri oleh pelanggan (Kiosk).
+10. **Fase 10 (Fitur Lanjutan & Multi-Tenant):** Multi-tenant, stok bahan baku, akun owner, pagination global, dan laporan PDF.
+11. **Fase 11 (Integrasi Payment Gateway):** Integrasi pembayaran online otomatis (Midtrans/Xendit).
 
 ---
 
@@ -277,7 +280,80 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
 
 ---
 
-### 📋 LIST 9: FASE 9 - INTEGRASI PAYMENT GATEWAY (MIDTRANS/XENDIT)
+### 📋 LIST 9: FASE 9 - SELF-SERVICE KIOSK ORDERING
+---
+#### Card 1: API Penampung Kustomisasi & Reservasi Stok (Backend)
+*   **Description:** Endpoint penampung draf pesanan kiosk yang mendukung kustomisasi produk (modifiers/add-ons) dan sistem booking stok sementara.
+*   **Checklist:**
+    *   [x] Migrasi/Update tabel `order_draft_items`: Tambahkan kolom `customizations` (tipe JSON) untuk menampung data ukuran, jenis roti/saus, dan add-ons pilihan pelanggan.
+    *   [x] Buat logic reservasi stok dinamis: Saat kiosk draft dibuat, stok produk dicadangkan selama 15 menit.
+    *   [x] Buat Scheduler (cron job) Laravel untuk otomatis melepas reservasi stok jika draf tidak diproses bayar oleh kasir dalam waktu 15 menit.
+    *   [x] Buat endpoint `POST /api/v1/kiosk/order-drafts` untuk menerima payload pemesanan kiosk mandiri.
+
+#### Card 2: Halaman Katalog Pemesanan Mandiri (Frontend)
+*   **Description:** Desain halaman pemesanan mandiri yang dioptimalkan untuk orientasi potret vertikal (portrait 9:16/10:16) pada mesin Kiosk.
+*   **Checklist:**
+    *   [x] Buat route khusus kiosk (`src/app/kiosk/page.tsx`).
+    *   [x] Buat Welcome Screen interaktif ("Sentuh Layar Untuk Memulai") dengan pilihan layanan Dine-In / Take-Away.
+    *   [x] Buat grid menu catalog berukuran besar dengan fokus visual dominan pada foto produk beresolusi tinggi.
+    *   [x] Implementasikan header navigasi kategori berbentuk tab ikon besar yang mudah digeser di layar sentuh.
+    *   [x] Sediakan bar menu bawah statis berisi tombol Accessibility (Aksesibilitas Kontras Tinggi/Audio), Bantuan, dan Batalkan Pesanan (Cancel Order).
+
+#### Card 3: Modal Kustomisasi Menu & Cetak Tiket Antrean (Frontend)
+*   **Description:** Panel kustomisasi menu interaktif untuk memilih ukuran, bahan, add-ons, serta halaman sukses pencetakan struk antrean draf.
+*   **Checklist:**
+    *   [x] Buat Modal Popup Kustomisasi Menu yang interaktif saat item makanan diklik.
+    *   [x] Tampilkan selektor ukuran produk (Small, Medium, Large) dan jenis bahan dasar (tipe radio button/pills).
+    *   [x] Tampilkan list Add-ons populer (ekstra keju/daging/saus) menggunakan checkbox yang secara real-time mengkalkulasi kenaikan harga subtotal produk.
+    *   [x] Hubungkan tombol "Simpan Pesanan" dengan API Kiosk Draft, lalu munculkan visual struk tiket antrean besar lengkap dengan barcode simulator dan instruksi pembayaran di kasir.
+
+---
+
+### 📋 LIST 10: FASE 10 - MULTI-TENANCY, RAW MATERIALS & ADVANCED BACKLOG
+---
+#### Card 1: Multi-Tenant & Multi-Store Management (Aplikasi Multi-Tenant)
+*   **Description:** Mengembangkan sistem agar mendukung multi-tenant (banyak toko/cabang terisolasi) dengan database terpisah atau kolokasi skema terisolasi lewat `store_id` tenant.
+*   **Checklist:**
+    *   [ ] Setup tenant identification (via subdomain, custom domain, atau login store code).
+    *   [ ] Enforce global tenant scope pada seluruh Eloquent Query di Laravel (menggunakan Global Scope Laravel agar Query data otomatis terfilter berdasarkan `store_id` tenant yang sedang login).
+    *   [ ] Modifikasi tabel-tabel transaksi dan inventori untuk memastikan isolasi tenant 100% aman.
+    *   [ ] Desain alur registrasi tenant/toko baru secara mandiri.
+
+#### Card 2: Pengelolaan Bahan Baku / Non-Saleable Stock (Stok Bahan Baku Tidak Masuk Penjualan)
+*   **Description:** Menambahkan tipe produk baru (Bahan Baku / Raw Material) yang digunakan untuk produksi dan resep, namun tidak muncul di menu penjualan POS Kasir maupun Kiosk.
+*   **Checklist:**
+    *   [ ] Tambahkan kolom/field `is_saleable` (boolean) atau `product_type` (enum: `finished_good`, `raw_material`) di tabel `products`.
+    *   [ ] Modifikasi API `GET /api/v1/products` di Kasir/Kiosk agar menyaring (`filter`) produk yang hanya bertipe `finished_good` atau `is_saleable = true`.
+    *   [ ] Buat modul inventori bahan baku khusus untuk Stocker agar tetap bisa restock dan adjustment bahan baku.
+    *   [ ] Rancang skema database opsional untuk Bill of Materials (BOM) jika ingin pengurangan bahan baku otomatis terjadi saat produk jadi terjual.
+
+#### Card 3: Pembuatan & Pemantauan Akun oleh Owner (Owner Dashboard)
+*   **Description:** Fitur bagi pemilik toko/akun POS untuk mendaftarkan toko baru, membuat akun manajer/kasir secara mandiri, dan memantau aktivitas transaksi secara real-time.
+*   **Checklist:**
+    *   [ ] Buat role khusus `owner` di atas `manager` yang memiliki hak kelola toko-toko milik tenant-nya.
+    *   [ ] Buat interface manajemen akun staf (Supervisor, Kasir, Stocker) khusus untuk Owner.
+    *   [ ] Buat dashboard real-time pemantauan omset penjualan harian, shift aktif kasir, dan penyesuaian stok sensitif langsung di layar Owner.
+    *   [ ] Buat notifikasi alert ke Owner jika ada discrepancy (selisih kas) atau pembatalan transaksi (void) yang mencurigakan.
+
+#### Card 4: Global Pagination (Pagination Seluruh Halaman Data)
+*   **Description:** Menerapkan sistem pagination server-side yang konsisten pada semua tabel data baik di backend (API) maupun frontend (Next.js) demi performa optimal.
+*   **Checklist:**
+    *   [ ] Pastikan seluruh endpoint list data (Products, Transactions, Shifts, Audit Logs, Members) di Laravel menggunakan `paginate()` bukan `get()`.
+    *   [ ] Buat standardisasi response API paginated (menyertakan meta page, total, limit, next/prev link).
+    *   [ ] Desain dan implementasikan komponen Reusable Pagination di frontend Next.js (berintegrasi dengan URL query parameters `/products?page=2`).
+    *   [ ] Hubungkan UI loading skeleton saat perpindahan halaman agar transisi terasa halus.
+
+#### Card 5: Laporan Keuangan Penjualan & Pembelian Format PDF
+*   **Description:** Menghasilkan dokumen laporan keuangan PDF (laba kotor/bersih, rekapitulasi penjualan, rekapitulasi pembelian/restock) yang siap cetak atau diunduh oleh Owner/Manager.
+*   **Checklist:**
+    *   [ ] Buat helper / service generator PDF menggunakan library (seperti `barryvdh/laravel-dompdf` di Laravel).
+    *   [ ] Rancang template desain PDF laporan keuangan yang rapi, profesional, dan mencantumkan logo toko.
+    *   [ ] Buat endpoint API `GET /api/v1/reports/financial/download` dengan parameter tanggal awal, tanggal akhir, dan format PDF.
+    *   [ ] Integrasikan tombol "Unduh Laporan PDF" pada dashboard Manager/Owner di Next.js dengan pemrosesan asynchronous / progress loader.
+
+---
+
+### 📋 LIST 11: FASE 11 - INTEGRASI PAYMENT GATEWAY (MIDTRANS/XENDIT)
 ---
 #### Card 1: Setup & Integrasi SDK Payment Gateway (Backend)
 *   **Description:** Menyiapkan konfigurasi key, merchant id, environment (.env) dan SDK/Library untuk Midtrans atau Xendit di Laravel.
@@ -307,34 +383,5 @@ Untuk meminimalkan blocker, pengembangan dilakukan secara **incremental (bertaha
     *   [ ] Buat modal status pembayaran "Menunggu Pembayaran..." dengan status check/polling setiap 3-5 detik ke endpoint `GET /transactions/{id}/payment-status`.
     *   [ ] Tampilkan alert sukses dan lanjutkan otomatis ke struk belanja setelah pembayaran terdeteksi lunas (lunas via webhook/polling).
     *   [ ] Sediakan tombol fallback "Konfirmasi Manual / Standalone" jika pembayaran gateway macet / mati.
-
----
-
-### 📋 LIST 10: FASE 10 - SELF-SERVICE KIOSK ORDERING
----
-#### Card 1: API Penampung Kustomisasi & Reservasi Stok (Backend)
-*   **Description:** Endpoint penampung draf pesanan kiosk yang mendukung kustomisasi produk (modifiers/add-ons) dan sistem booking stok sementara.
-*   **Checklist:**
-    *   [ ] Migrasi/Update tabel `order_draft_items`: Tambahkan kolom `customizations` (tipe JSON) untuk menampung data ukuran, jenis roti/saus, dan add-ons pilihan pelanggan.
-    *   [ ] Buat logic reservasi stok dinamis: Saat kiosk draft dibuat, stok produk dicadangkan selama 15 menit.
-    *   [ ] Buat Scheduler (cron job) Laravel untuk otomatis melepas reservasi stok jika draf tidak diproses bayar oleh kasir dalam waktu 15 menit.
-    *   [ ] Buat endpoint `POST /api/v1/kiosk/order-drafts` untuk menerima payload pemesanan kiosk mandiri.
-
-#### Card 2: Halaman Katalog Pemesanan Mandiri (Frontend)
-*   **Description:** Desain halaman pemesanan mandiri yang dioptimalkan untuk orientasi potret vertikal (portrait 9:16/10:16) pada mesin Kiosk.
-*   **Checklist:**
-    *   [ ] Buat route khusus kiosk (`src/app/kiosk/page.tsx`).
-    *   [ ] Buat Welcome Screen interaktif ("Sentuh Layar Untuk Memulai") dengan pilihan layanan Dine-In / Take-Away.
-    *   [ ] Buat grid menu catalog berukuran besar dengan fokus visual dominan pada foto produk beresolusi tinggi.
-    *   [ ] Implementasikan header navigasi kategori berbentuk tab ikon besar yang mudah digeser di layar sentuh.
-    *   [ ] Sediakan bar menu bawah statis berisi tombol Accessibility (Aksesibilitas Kontras Tinggi/Audio), Bantuan, dan Batalkan Pesanan (Cancel Order).
-
-#### Card 3: Modal Kustomisasi Menu & Cetak Tiket Antrean (Frontend)
-*   **Description:** Panel kustomisasi menu interaktif untuk memilih ukuran, bahan, add-ons, serta halaman sukses pencetakan struk antrean draf.
-*   **Checklist:**
-    *   [ ] Buat Modal Popup Kustomisasi Menu yang interaktif saat item makanan diklik.
-    *   [ ] Tampilkan selektor ukuran produk (Small, Medium, Large) dan jenis bahan dasar (tipe radio button/pills).
-    *   [ ] Tampilkan list Add-ons populer (ekstra keju/daging/saus) menggunakan checkbox yang secara real-time mengkalkulasi kenaikan harga subtotal produk.
-    *   [ ] Hubungkan tombol "Simpan Pesanan" dengan API Kiosk Draft, lalu munculkan visual struk tiket antrean besar lengkap dengan barcode simulator dan instruksi pembayaran di kasir.
 
 

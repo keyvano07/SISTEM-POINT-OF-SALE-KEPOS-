@@ -28,6 +28,11 @@ export default function MemberManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTier, setFilterTier] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterTier]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -65,6 +70,12 @@ export default function MemberManagementPage() {
   });
 
   const tierBadgeVariant = (tier: string) => tier === 'gold' ? 'gold' as const : tier === 'silver' ? 'silver' as const : 'bronze' as const;
+
+  const itemsPerPage = 10;
+  const indexOfLastMember = currentPage * itemsPerPage;
+  const indexOfFirstMember = indexOfLastMember - itemsPerPage;
+  const currentMembers = filteredMembers.slice(indexOfFirstMember, indexOfLastMember);
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">

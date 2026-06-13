@@ -41,6 +41,7 @@ class OrderDraftController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'store_id' => 'nullable|exists:stores,id',
             'order_type' => 'required|in:dine_in,take_away',
             'table_number' => 'required_if:order_type,dine_in|nullable|string|max:50',
             'source' => 'nullable|in:pramuniaga,kiosk',
@@ -50,6 +51,7 @@ class OrderDraftController extends Controller
             'items.*.unit_price' => 'nullable|numeric|min:0',
             'items.*.customizations' => 'nullable|array',
         ], [
+            'store_id.exists' => 'Store tidak ditemukan.',
             'order_type.required' => 'Tipe pesanan harus ditentukan.',
             'order_type.in' => 'Tipe pesanan harus berupa dine_in atau take_away.',
             'table_number.required_if' => 'Nomor meja harus diisi untuk makan di tempat (dine-in).',
@@ -74,13 +76,18 @@ class OrderDraftController extends Controller
             $user = $request->user();
             $source = $request->input('source', 'pramuniaga');
             
+            $storeId = $request->input('store_id');
+            if (!$storeId) {
+                $storeId = $user ? $user->store_id : (\App\Models\Store::first()?->id ?: 1);
+            }
+
             // Kiosk drafts expire in 15 minutes, Pramuniaga drafts expire in 2 hours
             $expiresAt = $source === 'kiosk' ? now()->addMinutes(15) : now()->addHours(2);
 
             // Generate Queue ID: Q-DDMMYY-XXXX (resets daily)
             $datePrefix = 'Q-' . now()->format('dmy') . '-';
             
-            $draft = DB::transaction(function () use ($request, $user, $expiresAt, $datePrefix, $source) {
+            $draft = DB::transaction(function () use ($request, $user, $expiresAt, $datePrefix, $source, $storeId) {
                 // Get maximum queue_id for today using lockForUpdate or similar
                 $latestDraft = OrderDraft::where('queue_id', 'like', $datePrefix . '%')
                     ->lockForUpdate()
@@ -118,7 +125,7 @@ class OrderDraftController extends Controller
 
                 // Create Order Draft
                 $draft = OrderDraft::create([
-                    'store_id' => $user ? $user->store_id : null,
+                    'store_id' => $storeId,
                     'created_by' => $user ? $user->id : 1, // Default user admin id is 1 if guest/kiosk device is not logged in
                     'queue_id' => $queueId,
                     'order_type' => $request->order_type,

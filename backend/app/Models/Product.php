@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\BelongsToTenant;
+
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'store_id',
@@ -23,6 +25,8 @@ class Product extends Model
         'stock_quantity',
         'low_stock_threshold',
         'is_active',
+        'product_type',
+        'is_saleable',
     ];
 
     protected $casts = [
@@ -31,6 +35,7 @@ class Product extends Model
         'stock_quantity' => 'integer',
         'low_stock_threshold' => 'integer',
         'is_active' => 'boolean',
+        'is_saleable' => 'boolean',
     ];
 
     protected $appends = [
@@ -76,5 +81,23 @@ class Product extends Model
             ->sum('order_draft_items.quantity');
 
         return max(0, $this->stock_quantity - $reservedStock);
+    }
+
+    /**
+     * Get the recipes for this finished good.
+     */
+    public function recipes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductRecipe::class, 'product_id');
+    }
+
+    /**
+     * Get the raw ingredients for this finished good.
+     */
+    public function ingredients(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_recipes', 'product_id', 'ingredient_id')
+                    ->withPivot('quantity')
+                    ->withTimestamps();
     }
 }

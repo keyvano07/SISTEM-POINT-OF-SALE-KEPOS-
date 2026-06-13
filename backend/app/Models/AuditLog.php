@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
+use App\Traits\BelongsToTenant;
+
 class AuditLog extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     // The audit logs table is read-only. We disable timestamps as we only have created_at.
     public $timestamps = false;

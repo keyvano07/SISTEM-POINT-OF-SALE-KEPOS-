@@ -30,7 +30,11 @@ class StockAdjustmentController extends Controller
             $query->where('status', $request->status);
         }
 
-        $adjustments = $query->get();
+        if ($request->has('paginate') && $request->paginate == 'true') {
+            $adjustments = $query->paginate(15);
+        } else {
+            $adjustments = $query->get();
+        }
 
         return response()->json([
             'success' => true,
@@ -46,8 +50,8 @@ class StockAdjustmentController extends Controller
     {
         $user = $request->user();
         
-        // Stocker, supervisor, manager, super_admin are allowed to submit adjustments
-        if (!in_array($user->role, ['super_admin', 'manager', 'supervisor', 'stocker'])) {
+        // Stocker, supervisor, manager, owner, super_admin are allowed to submit adjustments
+        if (!in_array($user->role, ['super_admin', 'owner', 'manager', 'supervisor', 'stocker'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk mengajukan penyesuaian stok.'
@@ -113,8 +117,8 @@ class StockAdjustmentController extends Controller
     {
         $user = $request->user();
         
-        // Manager, supervisor, and stocker are allowed to restock
-        if (!in_array($user->role, ['super_admin', 'manager', 'supervisor', 'stocker'])) {
+        // Manager, owner, supervisor, and stocker are allowed to restock
+        if (!in_array($user->role, ['super_admin', 'owner', 'manager', 'supervisor', 'stocker'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk melakukan restock barang.'
@@ -164,8 +168,8 @@ class StockAdjustmentController extends Controller
     {
         $user = $request->user();
 
-        // Only manager, supervisor, or super_admin can approve
-        if (!in_array($user->role, ['super_admin', 'manager', 'supervisor'])) {
+        // Only manager, owner, supervisor, or super_admin can approve
+        if (!in_array($user->role, ['super_admin', 'owner', 'manager', 'supervisor'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk menyetujui penyesuaian stok.'
@@ -187,7 +191,7 @@ class StockAdjustmentController extends Controller
         // Verify the PIN
         $pinMatched = false;
         $authorizedUser = null;
-        $authorizedUsers = \App\Models\User::whereIn('role', ['super_admin', 'manager', 'supervisor'])
+        $authorizedUsers = \App\Models\User::whereIn('role', ['super_admin', 'owner', 'manager', 'supervisor'])
             ->where('is_active', true)
             ->whereNotNull('pin')
             ->get();
@@ -246,8 +250,8 @@ class StockAdjustmentController extends Controller
     {
         $user = $request->user();
 
-        // Only manager, supervisor, or super_admin can reject
-        if (!in_array($user->role, ['super_admin', 'manager', 'supervisor'])) {
+        // Only manager, owner, supervisor, or super_admin can reject
+        if (!in_array($user->role, ['super_admin', 'owner', 'manager', 'supervisor'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk menolak penyesuaian stok.'
@@ -270,7 +274,7 @@ class StockAdjustmentController extends Controller
         // Verify the PIN
         $pinMatched = false;
         $authorizedUser = null;
-        $authorizedUsers = \App\Models\User::whereIn('role', ['super_admin', 'manager', 'supervisor'])
+        $authorizedUsers = \App\Models\User::whereIn('role', ['super_admin', 'owner', 'manager', 'supervisor'])
             ->where('is_active', true)
             ->whereNotNull('pin')
             ->get();

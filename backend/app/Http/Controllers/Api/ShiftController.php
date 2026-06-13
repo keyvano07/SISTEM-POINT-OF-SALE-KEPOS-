@@ -17,8 +17,8 @@ class ShiftController extends Controller
     {
         $user = $request->user();
 
-        // Only manager, supervisor, or super_admin can view all shifts
-        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+        // Only owner, manager, supervisor, or super_admin can view all shifts
+        if (!in_array($user->role, ['owner', 'manager', 'supervisor', 'super_admin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk melihat riwayat shift.'
@@ -42,7 +42,11 @@ class ShiftController extends Controller
                 $query->whereDate('opened_at', $request->date);
             }
 
-            $shifts = $query->get();
+            if ($request->has('paginate') && $request->paginate == 'true') {
+                $shifts = $query->paginate(15);
+            } else {
+                $shifts = $query->get();
+            }
 
             return response()->json([
                 'success' => true,
@@ -285,8 +289,8 @@ class ShiftController extends Controller
 
         $user = $request->user();
 
-        // Only manager, supervisor, or super_admin can audit
-        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+        // Only owner, manager, supervisor, or super_admin can audit
+        if (!in_array($user->role, ['owner', 'manager', 'supervisor', 'super_admin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk melakukan audit shift.'
@@ -342,8 +346,8 @@ class ShiftController extends Controller
     {
         $user = $request->user();
 
-        // Only manager, supervisor, or super_admin can view shift details
-        if (!in_array($user->role, ['manager', 'supervisor', 'super_admin'])) {
+        // Only owner, manager, supervisor, or super_admin can view shift details
+        if (!in_array($user->role, ['owner', 'manager', 'supervisor', 'super_admin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses ditolak. Anda tidak memiliki wewenang untuk melihat detail shift.'
